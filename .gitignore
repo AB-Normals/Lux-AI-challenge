@@ -127,3 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Remove replays
+replays/*.json
+
+# Remove *tar.gz 
+# but keep those in the submits folder
+*.tar.gz
+!submits/*.tar.gz
