@@ -1,4 +1,5 @@
 import math, sys
+from game_ext import GameExtended as G
 from lux.game import Game
 from lux.game_map import Cell, RESOURCE_TYPES
 from lux.constants import Constants
@@ -6,6 +7,7 @@ from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
 
 DIRECTIONS = Constants.DIRECTIONS
+gs = G()
 game_state = None
 lets_build_city = False
 build_pos = None
@@ -19,6 +21,7 @@ def can_build_worker(player) -> bool:
 
 
 def agent(observation, configuration):
+    global gs
     global game_state
     global lets_build_city
     global build_pos
@@ -32,7 +35,7 @@ def agent(observation, configuration):
         game_state.id = observation.player
     else:
         game_state._update(observation["updates"])
-    
+    gs._update(observation)
     actions = []
 
     ### AI Code goes down here! ### 
