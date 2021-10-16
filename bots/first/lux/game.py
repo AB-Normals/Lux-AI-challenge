@@ -62,7 +62,9 @@ class Game:
                 wood = int(strs[7])
                 coal = int(strs[8])
                 uranium = int(strs[9])
-                self.players[team].units.append(Unit(team, unittype, unitid, x, y, cooldown, wood, coal, uranium))
+                unit = Unit(team, unittype, unitid, x, y, cooldown, wood, coal, uranium)
+                self.players[team].units.append(unit)
+                self.map.get_cell(x, y).units.append(unit)
             elif input_identifier == INPUT_CONSTANTS.CITY:
                 team = int(strs[1])
                 cityid = strs[2]
