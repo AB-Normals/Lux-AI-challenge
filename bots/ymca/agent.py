@@ -99,6 +99,8 @@ def agent(observation, configuration, DEBUG=False):
 
                     if cell.citytile:
                         continue
+                    if cell.has_resource():
+                        continue  
                     else:
                         # actions.append(annotate.x(x, y))
                         jobs.add(Task.BUILD, Position(x,y))
