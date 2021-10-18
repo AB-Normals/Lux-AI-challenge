@@ -75,7 +75,10 @@ class JobBoard:
         # check for the first Job from the 'todo' list
         if unit.get_cargo_space_left() > 0:
             tile = self.parent._find_closest_resources(unit.pos)
-            job = Job(Task.HARVEST, tile.pos)
+            if not tile:
+                job = Job(Task.SLEEP, unit.pos)
+            else: 
+                job = Job(Task.HARVEST, tile.pos)
             self.inprogress[unit.id] = job
             return job
         else:
@@ -84,7 +87,11 @@ class JobBoard:
                 job.unit_id = unit.id
                 self.inprogress[unit.id] = job
                 return job
-            else: return None
+            else: # none to do -> SLEEP
+                job = Job(Task.SLEEP, unit.pos)
+                self.inprogress[unit.id] = job
+                return job
+
         
     def jobDone(self, unit_id):
         job = self.inprogress[unit_id]
