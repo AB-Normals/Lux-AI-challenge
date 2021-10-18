@@ -197,6 +197,9 @@ class GameExtended(Game):
                 open_list.append((next_cell.pos.x, next_cell.pos.y))
         # return the path
         dist = board[(epos.x, epos.y)]
+        if not dist:
+            # no path founded
+            return [DIRECTIONS.CENTER, []]
         cur_step = (DIRECTIONS.CENTER, epos.x, epos.y, dist)
         path.append(cur_step)
         dist -= 1

@@ -157,12 +157,16 @@ def agent(observation, configuration, DEBUG=False):
                 else:
                     move_dir, path = game_state.path_to(
                         unit.pos, my_job.pos, noCities=True)
-                    actions.move(unit, move_dir)
-                    # actions.append(unit.move(move_dir))
-                    # Draw the path
-                    for i in range(len(path)-1):
-                        actions.append(annotate.line(
-                            path[i][1], path[i][2], path[i+1][1], path[i+1][2]))
+                    if path:
+                        actions.move(unit, move_dir)
+                        # actions.append(unit.move(move_dir))
+                        # Draw the path
+                        for i in range(len(path)-1):
+                            actions.append(annotate.line(
+                                path[i][1], path[i][2], path[i+1][1], path[i+1][2]))
+                    else:   # not path found
+                        jobs.jobDone(unit.id)
+
 
             elif my_job.task == Task.SLEEP:
                 if unit.pos == my_job.pos:
