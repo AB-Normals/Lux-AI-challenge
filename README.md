@@ -6,6 +6,7 @@ Each programming language has a starter kit, you can find general API documentat
 
 See the original [README.md](Lux-AI-Challenge.md)
 
+---
 ## Getting Started
 
 You will need Node.js version 12 or above. See installation instructions [here](https://nodejs.org/en/download/), you can just download the recommended version.
@@ -19,6 +20,7 @@ npm install -g @lux-ai/2021-challenge@latest
 
 You may ignore any warnings that show up, those are harmless. To run a match from the command line (CLI), simply run
 
+---
 ## Your first BOT
 
 Your BOT must be inserted as a subfolder inside the `bots` folder.
@@ -28,6 +30,7 @@ I prepared some bash scripts that can be used for Python bots, please make your 
 
 Inside the `bots` folder each bot has its own forder with the name of the Bot itself.
 
+---
 ## Testing the BOT
 
 Testing the Bot means trying your Bot against another one
@@ -51,6 +54,23 @@ You can watch the replay stored in the replays folder using our [visualizer](htt
 
 To watch the replay locally, follow instructions here https://github.com/Lux-AI-Challenge/LuxViewer2021/
 
+---
+## Testing the BOT on Docker
+
+This tool matches the lux-ai-2021 exactly, but runs on Ubuntu 18.04, the target system that the competition servers use.
+Make sure to first [install docker](https://docs.docker.com/get-docker/).
+
+I prepared a shell script to test the Bot using the lux-ai-2021 engine inside Docker, this has same functionality as previous script:
+
+```
+./run_docker.sh BOT1 BOT2
+```
+
+NOTE: On the first run, it will build a docker image and run a container in the background. Future runs will then be much faster.
+
+To use different parameters you need to use the `cli.sh` as described in the original [README](Lux-AI-Challenge.md).I
+
+---
 ## Prepare for submition
 
 To prepare the file for submition you can use the script :
