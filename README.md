@@ -1,6 +1,10 @@
 # Lux AI Challenge
 
-This repository is a cleaned version of the official **LUX AI Challenge** kit that can be found here: Each programming language has a starter kit, you can find general API documentation here: https://github.com/Lux-AI-Challenge/Lux-Design-2021
+This repository is a cleaned version of the official **LUX AI Challenge** kit that can be found here: https://github.com/Lux-AI-Challenge/Lux-Design-2021
+
+Each programming language has a starter kit, you can find general API documentation here: https://github.com/Lux-AI-Challenge/Lux-Design-2021/kits/README.md
+
+See the original [README.md](Lux-AI-Challenge.md)
 
 ## Getting Started
 
