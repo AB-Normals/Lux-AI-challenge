@@ -24,7 +24,7 @@ class Task:
     BUILD = "b"         # Build a citytile
     HARVEST = "h"       # Get resouce
     ENERGIZE = "e"      # Feed a city with resource
-
+    EXPLORE = "x"       # Search for a place to build a new city
 
 class Job:
     def __init__(self, task: str, pos: Position):

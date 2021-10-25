@@ -76,7 +76,7 @@ def agent(observation, configuration, DEBUG=False):
     global game_state
     global lets_build_city
     global build_pos
-    max_tiles = 1
+    max_city_size = 3
 
     ### Do not edit ###
     game_state._update(observation)
@@ -93,6 +93,9 @@ def agent(observation, configuration, DEBUG=False):
         # get energy cost for the night to come
         cost = 10 * len(city.citytiles) * city.get_light_upkeep()
         fulled = city.fuel > cost
+        city_size = len(city.citytiles)
+        city_can_expand = city_size < max_city_size
+        more_space = fulled and city_can_expand
         for ct in city.citytiles:
             pxy = ct.pos
             actions.append(annotate.text(pxy.x, pxy.y, f"{fulled}"))
@@ -101,7 +104,9 @@ def agent(observation, configuration, DEBUG=False):
                     actions.append(ct.build_worker())
                 else:
                     actions.append(ct.research())
-            if fulled:
+            if not fulled:
+                jobs.add(Task.ENERGIZE, ct.pos)  
+            if fulled and city_can_expand:
                 # choose a place to create a new citytile in same city
                 for x, y in [(pxy.x, pxy.y+1), (pxy.x, pxy.y-1), (pxy.x+1, pxy.y), (pxy.x-1, pxy.y)]:
                     if not 0 <= x < game_state.map_width:
@@ -117,11 +122,13 @@ def agent(observation, configuration, DEBUG=False):
                     if cell.has_resource():
                         continue
                     else:
-                        # actions.append(annotate.x(x, y))
+                        actions.append(annotate.x(x, y))
                         jobs.add(Task.BUILD, Position(x, y))
+                        no_more_space = False
                         break
-            else:  # Ask for energy
-                jobs.add(Task.ENERGIZE, ct.pos)
+        if fulled and no_more_space:
+            job.add(Task.EXPLORE, None)
+        
 
     for unit in player.units:
         # if the unit is a worker (can mine resources) and can perform an action this turn
@@ -175,5 +182,14 @@ def agent(observation, configuration, DEBUG=False):
                 else:
                     move_dir = unit.pos.direction_to(my_job.pos)
                     actions.move(unit, move_dir)
+
+            elif my_job.task == Task.EXPLORE:
+                if unit.pos == my_job.pos:
+                    # TODO: need to wait until next day
+                    jobs.jobDone(unit.id)
+                else:
+                    move_dir = unit.pos.direction_to(my_job.pos)
+                    actions.move(unit, move_dir)
+
 
     return actions.actions
