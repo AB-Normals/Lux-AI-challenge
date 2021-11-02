@@ -21,17 +21,17 @@ class Task:
     movement and then the Job
     """
     SLEEP = "r"         # Sleep until daytime
-    BUILD = "b"         # Build a citytile
-    HARVEST = "h"       # Get resouce
-    ENERGIZE = "e"      # Feed a city with resource
+    BUILD = "b"         # Build a citytile of city 'city_id' at 'pos' 
+    HARVEST = "h"       # Get resouce at 'pos'
+    ENERGIZE = "e"      # Feed a 'city_id' with resource ad return it at 'pos'
     EXPLORE = "x"       # Search for a place to build a new city
 
 class Job:
     def __init__(self, task: str, pos: Position):
-        self.pos: Position = pos
-        self.task: str = task
-        self.unit_id: str = ""
-
+        self.pos: Position = pos    # some task need a position reference
+        self.task: str = task       # task type
+        self.city_id: str = ""      # city_id parameter used by some tasks
+        self.unit_id: str = ""      # unit_id that has this task as assignement
 
 class JobBoard:
     """
@@ -57,11 +57,34 @@ class JobBoard:
             # TODO: choose a default Job
             return None
 
-    def add(self, task: str, pos: Position):
+    def _activeJobs(self):
+        """ Return a list with all active Jobs (not DONE) """
+        return(self.todo + [n for n in self.inprogress.values()])
+
+    def add(self, task: str, pos: Position, city_id: str = "") -> bool:
         # Check if no other todo job are present for that position
         if not pos in [ j.pos for j in self.todo]:
             job = Job(task, pos)
+            job.city_id = city_id
             self.todo.append(job)
+            return True
+        else:
+            return False
+
+    def count(self, task: str, pos: Position = None, city_id: str = "") -> int:
+        """
+        Return total number of active (not DONE) tasks with given parameters
+        """
+        retvalue = 0
+        # check in self.todo 
+        for job in self._activeJobs():
+            if job.task == task:                
+                if pos and pos != job.pos:
+                    continue
+                if city_id and city_id != job.city_id:
+                    continue
+                retvalue += 1
+        return(retvalue)
 
     def jobRequest(self, unit: Unit):
         """ 

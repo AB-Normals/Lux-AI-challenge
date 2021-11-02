@@ -70,19 +70,19 @@ game_state = GameExtended()
 lets_build_city = False
 build_pos = None
 jobs = game_state.job_board
-
+completed_cities = []
 
 def agent(observation, configuration, DEBUG=False):
     global game_state
     global lets_build_city
     global build_pos
+    global completed_cities
     max_city_size = 3
 
     ### Do not edit ###
     game_state._update(observation)
     actions = Actions(game_state)
     path: List[Tuple] = []
-
 
     ### AI Code goes down here! ###
     player = game_state.player
@@ -94,8 +94,14 @@ def agent(observation, configuration, DEBUG=False):
         cost = 10 * len(city.citytiles) * city.get_light_upkeep()
         fulled = city.fuel > cost
         city_size = len(city.citytiles)
-        city_can_expand = city_size < max_city_size
-        more_space = fulled and city_can_expand
+        # city can expand if actual city size + requested build is less than maximum size
+        city_can_expand = city.cityid not in completed_cities
+        if city_can_expand:
+            if city_size + jobs.count(Task.BUILD, city_id=city.cityid) >= max_city_size:
+                completed_cities.append(city.cityid)
+                jobs.add(Task.EXPLORE, Position(0,0), city_id= city.cityid)
+                city_can_expand = False
+        #more_space = fulled and city_can_expand
         for ct in city.citytiles:
             pxy = ct.pos
             actions.append(annotate.text(pxy.x, pxy.y, f"{fulled}"))
@@ -105,8 +111,10 @@ def agent(observation, configuration, DEBUG=False):
                 else:
                     actions.append(ct.research())
             if not fulled:
-                jobs.add(Task.ENERGIZE, ct.pos)  
-            if fulled and city_can_expand:
+                jobs.add(Task.ENERGIZE, ct.pos, city_id = city.cityid)              
+        if fulled and city_can_expand:
+            build_requested = False
+            for ct in city.citytiles:
                 # choose a place to create a new citytile in same city
                 for x, y in [(pxy.x, pxy.y+1), (pxy.x, pxy.y-1), (pxy.x+1, pxy.y), (pxy.x-1, pxy.y)]:
                     if not 0 <= x < game_state.map_width:
@@ -116,24 +124,28 @@ def agent(observation, configuration, DEBUG=False):
                     
                     cell = game_state.map.get_cell(x, y)
                     # actions.append(annotate.text(x, y, f"{x},{y}"))
-
                     if cell.citytile:
                         continue
                     if cell.has_resource():
                         continue
                     else:
                         actions.append(annotate.x(x, y))
-                        jobs.add(Task.BUILD, Position(x, y))
-                        no_more_space = False
+                        jobs.add(Task.BUILD, Position(x, y), city_id=city.cityid)
+                        build_requested = True
                         break
-        if fulled and no_more_space:
-            job.add(Task.EXPLORE, None)
+                if build_requested:
+                    break
+            if not build_requested: # City can not expand
+                completed_cities.append(city.cityid)
+                jobs.add(Task.EXPLORE, Position(10,10), city_id= city.cityid)
         
 
     for unit in player.units:
         # if the unit is a worker (can mine resources) and can perform an action this turn
         if unit.is_worker() and unit.can_act():
             my_job = jobs.jobRequest(unit)
+            debug_text = f"{unit.id}: {my_job.task} ({my_job.pos.x};{my_job.pos.y}) c:{my_job.city_id}"
+            actions.append(annotate.sidetext(debug_text))
 
             if my_job.task == Task.HARVEST:
                 if unit.pos == my_job.pos:
