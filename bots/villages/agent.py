@@ -89,7 +89,7 @@ def agent(observation, configuration, DEBUG=False):
     opponent = game_state.opponent
     width, height = game_state.map.width, game_state.map.height
 
-    for k, city in player.cities.items():
+    for _, city in player.cities.items():
         # get energy cost for the night to come
         cost = 10 * len(city.citytiles) * city.get_light_upkeep()
         fulled = city.fuel > cost
@@ -114,7 +114,9 @@ def agent(observation, configuration, DEBUG=False):
                 jobs.add(Task.ENERGIZE, ct.pos, city_id = city.cityid)              
         if fulled and city_can_expand:
             build_requested = False
+            pxy = Position(0,0)
             for ct in city.citytiles:
+                pxy = ct.pos
                 # choose a place to create a new citytile in same city
                 for x, y in [(pxy.x, pxy.y+1), (pxy.x, pxy.y-1), (pxy.x+1, pxy.y), (pxy.x-1, pxy.y)]:
                     if not 0 <= x < game_state.map_width:
@@ -128,6 +130,9 @@ def agent(observation, configuration, DEBUG=False):
                         continue
                     if cell.has_resource():
                         continue
+                    if jobs.activeJobToPos(cell.pos):
+                        build_requested = True
+                        continue
                     else:
                         actions.append(annotate.x(x, y))
                         jobs.add(Task.BUILD, Position(x, y), city_id=city.cityid)
@@ -137,15 +142,12 @@ def agent(observation, configuration, DEBUG=False):
                     break
             if not build_requested: # City can not expand
                 completed_cities.append(city.cityid)
-                jobs.add(Task.EXPLORE, Position(10,10), city_id= city.cityid)
+                jobs.add(Task.EXPLORE, Position(pxy.x,pxy.y), city_id= city.cityid)
         
-
     for unit in player.units:
         # if the unit is a worker (can mine resources) and can perform an action this turn
         if unit.is_worker() and unit.can_act():
             my_job = jobs.jobRequest(unit)
-            debug_text = f"{unit.id}: {my_job.task} ({my_job.pos.x};{my_job.pos.y}) c:{my_job.city_id}"
-            actions.append(annotate.sidetext(debug_text))
 
             if my_job.task == Task.HARVEST:
                 if unit.pos == my_job.pos:
@@ -196,12 +198,27 @@ def agent(observation, configuration, DEBUG=False):
                     actions.move(unit, move_dir)
 
             elif my_job.task == Task.EXPLORE:
+                if my_job.city_id:
+                    my_job.city_id = ""
+                    res_cell = game_state.find_closest_resources(my_job.pos, min_distance=5)
+                    my_job.pos = game_state.find_closest_freespace(res_cell.pos)
                 if unit.pos == my_job.pos:
                     # TODO: need to wait until next day
+                    action = unit.build_city()
+                    actions.append(action)
                     jobs.jobDone(unit.id)
                 else:
                     move_dir = unit.pos.direction_to(my_job.pos)
                     actions.move(unit, move_dir)
 
+    ## Debug Text
+    actions.append(annotate.sidetext("----[TODO]----"))
+    for task in jobs.todo:
+        actions.append(annotate.sidetext(task))
+
+    actions.append(annotate.sidetext("-[INPROGRESS]-"))
+    for task in jobs.inprogress.values():
+        actions.append(annotate.sidetext(task))
+    
 
     return actions.actions

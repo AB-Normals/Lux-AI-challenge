@@ -26,12 +26,27 @@ class Task:
     ENERGIZE = "e"      # Feed a 'city_id' with resource ad return it at 'pos'
     EXPLORE = "x"       # Search for a place to build a new city
 
+def TaskStr(task: str) -> str:
+    _strings_ = {
+        Task.SLEEP: "SLP",
+        Task.BUILD: "BLD",
+        Task.HARVEST: "HRV",
+        Task.ENERGIZE: "NRG",
+        Task.EXPLORE: "XPL"
+    }
+
+    return(_strings_[task])
+
+
 class Job:
     def __init__(self, task: str, pos: Position):
         self.pos: Position = pos    # some task need a position reference
         self.task: str = task       # task type
         self.city_id: str = ""      # city_id parameter used by some tasks
         self.unit_id: str = ""      # unit_id that has this task as assignement
+
+    def __str__(self):
+        return f"{self.unit_id}: {TaskStr(self.task)} {self.pos} c:{self.city_id}"
 
 class JobBoard:
     """
@@ -59,7 +74,7 @@ class JobBoard:
 
     def _activeJobs(self):
         """ Return a list with all active Jobs (not DONE) """
-        return(self.todo + [n for n in self.inprogress.values()])
+        return self.todo + [n for n in self.inprogress.values()]
 
     def add(self, task: str, pos: Position, city_id: str = "") -> bool:
         # Check if no other todo job are present for that position
@@ -84,7 +99,7 @@ class JobBoard:
                 if city_id and city_id != job.city_id:
                     continue
                 retvalue += 1
-        return(retvalue)
+        return retvalue 
 
     def jobRequest(self, unit: Unit):
         """ 
@@ -97,11 +112,12 @@ class JobBoard:
             return job
         # check for the first Job from the 'todo' list
         if unit.get_cargo_space_left() > 0:
-            tile = self.parent._find_closest_resources(unit.pos)
+            tile = self.parent.find_closest_resources(unit.pos)
             if not tile:
                 job = Job(Task.SLEEP, unit.pos)
             else: 
                 job = Job(Task.HARVEST, tile.pos)
+            job.unit_id = unit.id
             self.inprogress[unit.id] = job
             return job
         else:
@@ -112,9 +128,9 @@ class JobBoard:
                 return job
             else: # none to do -> SLEEP
                 job = Job(Task.SLEEP, unit.pos)
+                job.unit_id = unit.id
                 self.inprogress[unit.id] = job
                 return job
-
         
     def jobDone(self, unit_id):
         job = self.inprogress[unit_id]
@@ -150,26 +166,55 @@ class GameExtended(Game):
             for x in range(self.map_width):
                 cell = self.map.get_cell(x, y)
                 if cell.has_resource():
+                    if cell.resource.type == Constants.RESOURCE_TYPES.COAL and not self.player.researched_coal():
+                        continue
+                    if cell.resource.type == Constants.RESOURCE_TYPES.URANIUM and not self.player.researched_uranium():
+                        continue
                     # only resources without inprogress active tasks
                     if not self.job_board.activeJobToPos(cell.pos): 
                         resource_tiles.append(cell)
         return resource_tiles
 
-    def _find_closest_resources(self, pos):
+    def find_closest_resources(self, pos, min_distance = 0):
         closest_dist = math.inf
         closest_resource_tile = None
         for resource_tile in self.resource_tiles:
             # we skip over resources that we can't mine due to not having researched them
-            if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not self.player.researched_coal():
-                continue
-            if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not self.player.researched_uranium():
-                continue
+            # if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not self.player.researched_coal():
+            #    continue
+            #if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not self.player.researched_uranium():
+            #    continue
             dist = resource_tile.pos.distance_to(pos)
-            if dist < closest_dist:
+            if min_distance <= dist < closest_dist:
                 closest_dist = dist
                 closest_resource_tile = resource_tile
         return closest_resource_tile
 
+    def find_closest_freespace(self, pos):
+        open_list = [(pos.x, pos.y)]
+        check_dirs = [
+            DIRECTIONS.NORTH,
+            DIRECTIONS.EAST,
+            DIRECTIONS.SOUTH,
+            DIRECTIONS.WEST
+        ]
+        while open_list:
+            cur_pos = open_list.pop(0)
+            cur_cell = self.map.get_cell(cur_pos[0], cur_pos[1])
+            for direction in check_dirs:
+                next_pos = cur_cell.pos.translate(direction, 1)
+                if not 0 <= next_pos.x < self.map_width:
+                    continue
+                if not 0 <= next_pos.y < self.map_height:
+                    continue
+                next_cell = self.map.get_cell_by_pos(next_pos)
+                if next_cell.citytile:
+                    continue
+                if next_cell.resource:
+                    open_list.append((next_cell.pos.x, next_cell.pos.y))
+                    continue
+                return next_cell.pos
+        return pos
 
     def path_to(self, from_pos: Position, to_pos: Position,  noCities=False, noResources=False) -> List[Tuple]:
         """ 
