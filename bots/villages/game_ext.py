@@ -57,9 +57,10 @@ class JobBoard:
     """
 
     def __init__(self, parent):
-        self.todo: List = []
-        self.inprogress: Dict = {}
-        self.done: List = []
+        self.todo: List = []        # ToDo Jobs
+        self.inprogress: Dict = {}  # InProgress Jobs
+        self.done: List = []        # Done Jobs
+        self.rip: List = []         # Dead Units
         self.parent = parent
 
     def _nextJob(self, pos: Position = None):
@@ -141,6 +142,26 @@ class JobBoard:
     def activeJobToPos(self, pos: Position) -> bool:
         return pos in [j.pos for j in self.inprogress.values()]
 
+    def checkActiveJobs(self, units : List):
+        """ 
+        Using list of Units check if there are some InProgress Jobs assigned to 
+        Unit no more on the list (dead unit). If the case then:
+        - return Job to ToDos
+        - add dead unit.id to rip List
+        """
+        morgue = []
+        for unit_id in self.inprogress:
+            if unit_id not in [u.id for u in units]:
+                morgue.append(unit_id)
+        for unit_id in morgue:
+            # mov job to self.todo
+            j = self.inprogress[unit_id]
+            j.unit_id = ""
+            self.todo.append(j)
+            del self.inprogress[unit_id]
+            # add unit_id in self.rip
+            self.rip.append(unit_id)
+
 class GameExtended(Game):
     """ A Game class with steroids """
 
@@ -159,6 +180,7 @@ class GameExtended(Game):
         self.player = self.players[self.id]
         self.opponent = self.players[(self.id + 1) % 2]
         self.resource_tiles = self._free_resources()
+        self.job_board.checkActiveJobs(self.player.units)
 
     def _free_resources(self):
         resource_tiles: list[Cell] = []
