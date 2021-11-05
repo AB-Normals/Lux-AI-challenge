@@ -44,6 +44,7 @@ class Job:
         self.task: str = task       # task type
         self.city_id: str = ""      # city_id parameter used by some tasks
         self.unit_id: str = ""      # unit_id that has this task as assignement
+        self.subtask: int = 0       # subtask used by jobs with multistate tasks 
 
     def __str__(self):
         return f"{self.unit_id}: {TaskStr(self.task)} {self.pos} c:{self.city_id}"
@@ -68,7 +69,14 @@ class JobBoard:
         #       as unit position, time of day, priority.
         #       Now no heurostics
         if self.todo:
-            return self.todo.pop(0)
+            closest_dist = math.inf
+            i = 0
+            for n in range(len(self.todo)):
+                dist = pos.distance_to(self.todo[n].pos)
+                if dist < closest_dist:
+                    i = n
+                    dist = closest_dist            
+            return self.todo.pop(i)
         else:
             # TODO: choose a default Job
             return None
@@ -77,7 +85,7 @@ class JobBoard:
         """ Return a list with all active Jobs (not DONE) """
         return self.todo + [n for n in self.inprogress.values()]
 
-    def add(self, task: str, pos: Position, city_id: str = "") -> bool:
+    def addJob(self, task: str, pos: Position, city_id: str = "") -> bool:
         # Check if no other todo job are present for that position
         if not pos in [ j.pos for j in self.todo]:
             job = Job(task, pos)
@@ -86,6 +94,18 @@ class JobBoard:
             return True
         else:
             return False
+    
+    def jobReject(self, unit_id: str):
+        """
+        The rejected job is returned from inProgress to ToDo list 
+        """
+        if unit_id in self.inprogress:
+            j = self.inprogress[unit_id]
+            j.unit_id = ""  # clear unit_id
+            j.subtask = 0
+            if j.task in [Task.EXPLORE, Task.BUILD]:
+                self.todo.append(j)
+            del self.inprogress[unit_id]
 
     def count(self, task: str, pos: Position = None, city_id: str = "") -> int:
         """
@@ -125,6 +145,7 @@ class JobBoard:
             job = self._nextJob(pos=unit.pos)
             if job:
                 job.unit_id = unit.id
+                job.subtask = 0
                 self.inprogress[unit.id] = job
                 return job
             else: # none to do -> SLEEP
@@ -155,10 +176,7 @@ class JobBoard:
                 morgue.append(unit_id)
         for unit_id in morgue:
             # mov job to self.todo
-            j = self.inprogress[unit_id]
-            j.unit_id = ""
-            self.todo.append(j)
-            del self.inprogress[unit_id]
+            self.jobReject(unit_id)
             # add unit_id in self.rip
             self.rip.append(unit_id)
 
