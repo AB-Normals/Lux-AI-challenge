@@ -28,7 +28,7 @@ As a first try you must copy the _simple_ kit BOT you'll find in `kits/[lang]/si
 
 I prepared some bash scripts that can be used for Python bots, please make your modification for other languages
 
-Inside the `bots` folder each bot has its own forder with the name of the Bot itself.
+Inside the `bots` folder each bot has its own folder with the name of the Bot itself.
 
 ---
 ## Testing the BOT
