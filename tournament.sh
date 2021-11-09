@@ -14,4 +14,4 @@ rst=`tput sgr0` # No Color
 
 echo ${yellow}AB-Normals{rst} ${cyan}TOURNAMENT${rst}
 echo
-lux-ai-2021 --rankSystem="wins" --storeReplay=false --storeLogs=false  --tournament ./bots/first/main.py  ./bots/ymca/main.py  ./kits/python/simple/main.py ./bots/villages/main.py
+lux-ai-2021 --rankSystem="wins" --storeReplay=false --storeLogs=false  --tournament ./bots/first/main.py  ./bots/ymca/main.py ./bots/villages/main.py ./bots/curfew/main.py
