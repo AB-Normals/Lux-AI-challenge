@@ -6,6 +6,10 @@ from .constants import Constants
 DIRECTIONS = Constants.DIRECTIONS
 RESOURCE_TYPES = Constants.RESOURCE_TYPES
 
+class Movement:
+    def __init__(self, direction, path):
+        self.direction = direction
+        self.path = path
 
 class Resource:
     def __init__(self, r_type: str, amount: int):
@@ -55,6 +59,12 @@ class Position:
     def __sub__(self, pos) -> int:
         return abs(pos.x - self.x) + abs(pos.y - self.y)
 
+    def __eq__(self, pos) -> bool:
+        return self.x == pos.x and self.y == pos.y
+
+    def __str__(self) -> str:
+        return f"({self.x}; {self.y})"
+
     def distance_to(self, pos):
         """
         Returns Manhattan (L1/grid) distance to pos
@@ -63,9 +73,6 @@ class Position:
 
     def is_adjacent(self, pos):
         return (self - pos) <= 1
-
-    def __eq__(self, pos) -> bool:
-        return self.x == pos.x and self.y == pos.y
 
     def equals(self, pos):
         return self == pos
@@ -101,9 +108,6 @@ class Position:
                 closest_dir = direction
                 closest_dist = dist
         return closest_dir
-
-    def __str__(self) -> str:
-        return f"({self.x}; {self.y})"
 
     def path_to(self, target_pos: 'Position', map: GameMap, noCities=False, noResources=False, playerid = None) -> DIRECTIONS:
         """ 
@@ -158,7 +162,7 @@ class Position:
         dist = board[(epos.x, epos.y)]
         if not dist:
             # no path founded
-            return DIRECTIONS.CENTER
+            return Movement(DIRECTIONS.CENTER, [])
         cur_step = (DIRECTIONS.CENTER, epos.x, epos.y, dist)
         path.append(cur_step)
         dist -= 1
@@ -180,4 +184,4 @@ class Position:
             direction = path[1][0]
         else:
             direction = path[0][0]
-        return direction
+        return Movement(direction, path)

@@ -15,6 +15,8 @@ from lux import annotate
 
 # Define helper functions
 
+
+
 class Actions:
 
     def __init__(self, game_state: GameExtended):
@@ -173,9 +175,9 @@ def agent(observation, configuration, DEBUG=False):
                 if unit.pos == my_job.pos:
                     jobs.jobDone(unit.id)
                 else:
-                    move_dir = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
+                    move = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
                     # move_dir = unit.pos.direction_to(my_job.pos)
-                    if not actions.move(unit, move_dir):
+                    if not actions.move(unit, move.direction):
                         jobs.jobReject(unit.id)
 
             elif my_job.task == Task.ENERGIZE:
@@ -183,8 +185,8 @@ def agent(observation, configuration, DEBUG=False):
                     jobs.jobDone(unit.id)
                 else:
                     #move_dir = unit.pos.direction_to(my_job.pos)
-                    move_dir = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
-                    actions.move(unit, move_dir)
+                    move = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
+                    actions.move(unit, move.direction)
                     # action = unit.move(unit.pos.direction_to(
                     #     my_job.pos))
                     # actions.append(action)
@@ -198,10 +200,11 @@ def agent(observation, configuration, DEBUG=False):
                         actions.append(action)
                         jobs.jobDone(unit.id)
                 else:
-                    move_dir, path = game_state.path_to(
-                        unit.pos, my_job.pos, noCities=True)
-                    if path:
-                        actions.move(unit, move_dir)
+                    
+                    
+                    move = unit.pos.path_to(my_job.pos, game_state.map, noCities=True)
+                    if move.path:
+                        actions.move(unit, move.direction)
                         # actions.append(unit.move(move_dir))
                         # Draw the path
                         for i in range(len(path)-1):
@@ -240,8 +243,8 @@ def agent(observation, configuration, DEBUG=False):
                             my_job.subtask = 2  # BUILD A NEW CITY
                     else:
                         # move_dir = unit.pos.direction_to(my_job.pos)
-                        move_dir = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
-                        actions.move(unit, move_dir)
+                        move = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
+                        actions.move(unit, move.direction)
                 if my_job.subtask == 2: # BUILD A NEW CITY
                     if unit.pos == my_job.pos:
                         # TODO: need to wait until next day
@@ -250,8 +253,8 @@ def agent(observation, configuration, DEBUG=False):
                         jobs.jobDone(unit.id)
                     else:
                         #move_dir = unit.pos.direction_to(my_job.pos)
-                        move_dir = unit.pos.path_to(my_job.pos, game_state.map, noCities=True, playerid=game_state.id)
-                        actions.move(unit, move_dir)    
+                        move = unit.pos.path_to(my_job.pos, game_state.map, noCities=True, playerid=game_state.id)
+                        actions.move(unit, move.direction)    
 
     ## Debug Text
     actions.append(annotate.sidetext("----[TODO]----"))
