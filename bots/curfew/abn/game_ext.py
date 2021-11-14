@@ -24,6 +24,7 @@ class GameExtended(Game):
         Game.__init__(self)
         self.job_board = JobBoard(self)
         self.resource_tiles = []
+        self.energy_map = {}    # used to store data like a matrix using (x,y) as keys
 
     def _update(self, messages):
         if messages["step"] == 0:
@@ -36,7 +37,33 @@ class GameExtended(Game):
         self.opponent = self.players[(self.id + 1) % 2]
         self.resource_tiles = self._free_resources()
         self.job_board.checkActiveJobs(self.player.units)
+        self.time = self.turn % 40
+        self.lux_time = max( 0 , 30 - self.time)
+        self._build_energy_map()
 
+    def _build_energy_map(self):
+        for x in range(self.map_width):
+            for y in range(self.map_height):
+                self.energy_map[x,y] = self.getEnergy(x,y)
+
+    def getEnergy(self, px, py) -> int:
+        energy = 0
+        # get energy from the cell
+        for x, y in [(px, py), (px-1, py), (px, py-1), (px+1, py), (px, py+1)]:
+            if not 0 <= x < self.map_width:
+                continue
+            if not 0 <= y < self.map_height:
+                continue
+            cell = self.map.get_cell(x, y)
+            if cell.has_resource():
+                if cell.resource.type == Constants.RESOURCE_TYPES.COAL and self.player.researched_coal():
+                    energy += cell.resource.amount * Constants.RESOURCE_TO_FUEL_RATE.COAL
+                if cell.resource.type == Constants.RESOURCE_TYPES.URANIUM and self.player.researched_uranium():
+                    energy += cell.resource.amount * Constants.RESOURCE_TO_FUEL_RATE.URANIUM
+                if cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
+                    energy += cell.resource.amount * Constants.RESOURCE_TO_FUEL_RATE.WOOD
+        return energy
+                    
     def _free_resources(self):
         resource_tiles: list[Cell] = []
         for y in range(self.map_height):
@@ -92,5 +119,3 @@ class GameExtended(Game):
                     continue
                 return next_cell.pos
         return pos
-
-   

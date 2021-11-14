@@ -20,3 +20,8 @@ class Constants:
         WOOD = "wood"
         URANIUM = "uranium"
         COAL = "coal"
+    class RESOURCE_TO_FUEL_RATE:
+        WOOD = 1
+        COAL = 10
+        URANIUM = 40
+
