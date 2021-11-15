@@ -23,7 +23,7 @@ class GameExtended(Game):
     def __init__(self):
         Game.__init__(self)
         self.job_board = JobBoard(self)
-        self.resource_tiles = []
+        #self.resource_tiles = []
         self.energy_map = {}    # used to store data like a matrix using (x,y) as keys
 
     def _update(self, messages):
@@ -35,7 +35,7 @@ class GameExtended(Game):
             Game._update(self, messages["updates"])
         self.player = self.players[self.id]
         self.opponent = self.players[(self.id + 1) % 2]
-        self.resource_tiles = self._free_resources()
+        #self.resource_tiles = self._free_resources()
         self.job_board.checkActiveJobs(self.player.units)
         self.time = self.turn % 40
         self.lux_time = max( 0 , 30 - self.time)
@@ -80,9 +80,10 @@ class GameExtended(Game):
         return resource_tiles
 
     def find_closest_resources(self, pos, min_distance = 0):
+        resource_tiles = self._free_resources()
         closest_dist = math.inf
         closest_resource_tile = None
-        for resource_tile in self.resource_tiles:
+        for resource_tile in resource_tiles:
             # we skip over resources that we can't mine due to not having researched them
             # if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not self.player.researched_coal():
             #    continue
