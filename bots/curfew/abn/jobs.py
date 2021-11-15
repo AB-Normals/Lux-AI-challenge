@@ -40,7 +40,7 @@ class Job:
         self.subtask: int = 0       # subtask used by jobs with multistate tasks 
 
     def __str__(self):
-        return f"{self.unit_id}: {TaskStr(self.task)} {self.pos} c:{self.city_id}"
+        return f"{self.unit_id}: {TaskStr(self.task)}.{self.subtask} {self.pos} c:{self.city_id}"
 
 class JobBoard:
     """
@@ -51,13 +51,13 @@ class JobBoard:
     """
 
     def __init__(self, parent):
-        self.todo: List = []        # ToDo Jobs
+        self.todo: List[Job] = []        # ToDo Jobs
         self.inprogress: Dict = {}  # InProgress Jobs
         self.done: List = []        # Done Jobs
         self.rip: List = []         # Dead Units
         self.parent = parent
 
-    def _nextJob(self, pos: Position = None):
+    def _nextJob(self, unit: Unit):
         # TODO: need a heuristics for job selection based on different parameters:
         #       as unit position, time of day, priority.
         #       Now no heurostics
@@ -65,12 +65,15 @@ class JobBoard:
             closest_dist = math.inf
             i = 0
             for n in range(len(self.todo)):
-                dist = pos.distance_to(self.todo[n].pos)
+                if self.todo[n].unit_id == unit.id: # not rejected job by this unit
+                    continue
+                dist = unit.pos.distance_to(self.todo[n].pos)
                 if dist < closest_dist:
                     i = n
                     dist = closest_dist            
             return self.todo.pop(i)
         else:
+            
             # TODO: choose a default Job
             return None
 
@@ -79,8 +82,8 @@ class JobBoard:
         return self.todo + [n for n in self.inprogress.values()]
 
     def addJob(self, task: str, pos: Position, city_id: str = "") -> bool:
-        # Check if no other todo job are present for that position
-        if not pos in [ j.pos for j in self.todo]:
+        # Check if no other active jobs are present for that position
+        if not pos in [ j.pos for j in self._activeJobs()]:
             job = Job(task, pos)
             job.city_id = city_id
             self.todo.append(job)
@@ -90,11 +93,12 @@ class JobBoard:
     
     def jobReject(self, unit_id: str):
         """
-        The rejected job is returned from inProgress to ToDo list 
+        The rejected job is returned from inProgress to ToDo list, 
+        mantains the unit_id so this job will not be assigned to the unit
+        that rejected it.
         """
         if unit_id in self.inprogress:
             j = self.inprogress[unit_id]
-            j.unit_id = ""  # clear unit_id
             j.subtask = 0
             if j.task in [Task.EXPLORE, Task.BUILD]:
                 self.todo.append(j)
@@ -125,27 +129,27 @@ class JobBoard:
         if job:
             return job
         # check for the first Job from the 'todo' list
-        if unit.get_cargo_space_left() > 0:
-            tile = self.parent.find_closest_resources(unit.pos)
-            if not tile:
-                job = Job(Task.SLEEP, unit.pos)
-            else: 
-                job = Job(Task.HARVEST, tile.pos)
+        # if unit.get_cargo_space_left() > 0:
+        #    tile = self.parent.find_closest_resources(unit.pos)
+        #    if not tile:
+        #        job = Job(Task.SLEEP, unit.pos)
+        #    else: 
+        #        job = Job(Task.HARVEST, tile.pos)
+        #    job.unit_id = unit.id
+        #    self.inprogress[unit.id] = job
+        #    return job
+        #else:
+        job = self._nextJob(unit)
+        if job:
+            job.unit_id = unit.id
+            job.subtask = 0
+            self.inprogress[unit.id] = job
+            return job
+        else: # none to do -> EXPLORE
+            job = Job(Task.EXPLORE, unit.pos)
             job.unit_id = unit.id
             self.inprogress[unit.id] = job
             return job
-        else:
-            job = self._nextJob(pos=unit.pos)
-            if job:
-                job.unit_id = unit.id
-                job.subtask = 0
-                self.inprogress[unit.id] = job
-                return job
-            else: # none to do -> SLEEP
-                job = Job(Task.SLEEP, unit.pos)
-                job.unit_id = unit.id
-                self.inprogress[unit.id] = job
-                return job
         
     def jobDone(self, unit_id):
         job = self.inprogress[unit_id]

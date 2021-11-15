@@ -11,12 +11,15 @@ class Actions:
         self.actions = [] 
         self.next_pos = {}  # Dictionary (unit.id: pos)
         self.req_pos = {}   # last requested position
+        self.collision = []
     
     def update(self):
         """ need to call 'update' each turn """
         self.actions = []
         self.req_pos = self.next_pos.copy()
         self.next_pos = {}
+        self.collision = []
+
 
     def append(self, cmd: str):
         self.actions.append(cmd)
@@ -37,6 +40,9 @@ class Actions:
             self.next_pos[unit.id] = unit.pos
             return False
 
+    def collided(self, unit: Unit) -> bool:
+        return unit.id in self.collision
+
     def isReqPos(self, unit: Unit) -> bool:
         return self.req_pos[unit.id] == unit.pos
 
@@ -49,6 +55,7 @@ class Actions:
             return False
         if unit.id in self.req_pos:     
             if self.req_pos[unit.id] == pos: # have a collision 
+                self.collision.append(unit.id)
                 return False
         return True
 

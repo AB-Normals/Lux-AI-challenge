@@ -25,12 +25,12 @@ if [ "$1" = "--docker" ]
 then
     echo ${yellow}AB-Normals{rst} ${cyan}TOURNAMENT${rst} -- ${red}ON DOCKER${rst} 
     echo
-    ./cli.sh --rankSystem="trueskill" --storeReplay=false --storeLogs=false  --tournament $args
+    ./cli.sh --rankSystem="wins" --storeReplay=false --storeLogs=false  --tournament $args
 elif [ -z $1 ]
 then
     echo ${yellow}AB-Normals{rst} ${cyan}TOURNAMENT${rst}
     echo
-    lux-ai-2021 --rankSystem="trueskill" --storeReplay=false --storeLogs=false  --tournament $args
+    lux-ai-2021 --rankSystem="wins" --storeReplay=false --storeLogs=false  --tournament $args
 else
     echo "ERR: invalid parameter"
     echo "usage: tournament [--docker]"
