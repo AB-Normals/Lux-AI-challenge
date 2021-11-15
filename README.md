@@ -63,7 +63,7 @@ Make sure to first [install docker](https://docs.docker.com/get-docker/).
 I prepared a shell script to test the Bot using the lux-ai-2021 engine inside Docker, this has same functionality as previous script:
 
 ```
-./run_docker.sh BOT1 BOT2
+./run.sh --docker BOT1 BOT2
 ```
 
 NOTE: On the first run, it will build a docker image and run a container in the background. Future runs will then be much faster.
@@ -71,6 +71,23 @@ NOTE: On the first run, it will build a docker image and run a container in the 
 To use different parameters you need to use the `cli.sh` as described in the original [README](Lux-AI-Challenge.md).I
 
 ---
+
+## Tournament
+Tournament is useful to check all your bots in a tournament match.
+To do so simply call the `tournament.sh` script and all bots inside the `bots` folder will partecipate to the tournament as long as you stop it by `ctrl-c`
+
+```
+./tournament.sh
+```
+
+You can also launch the tournament in a docker container with the option `--docker`
+
+```
+./tournament.sh --docker
+```
+
+---
+
 ## Prepare for submition
 
 To prepare the file for submition you can use the script :
