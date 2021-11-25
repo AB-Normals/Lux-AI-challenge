@@ -16,6 +16,9 @@ from lux.game_objects import Unit
 DIRECTIONS = Constants.DIRECTIONS
 RESOURCE_TYPES = Constants.RESOURCE_TYPES
 
+EVENING_HOURS = 10    # evening duration (end of day before night)
+MORNING_HOURS = 10    # morning duration (start of day after night) 
+
 
 class GameExtended(Game):
     """ A Game class with steroids """
@@ -40,6 +43,12 @@ class GameExtended(Game):
         self.time = self.turn % 40
         self.lux_time = max( 0 , 30 - self.time)
         self._build_energy_map()
+
+    def isEvening(self):
+        return (self.lux_time <= EVENING_HOURS)
+
+    def isMorning(self):
+        return (self.time <= MORNING_HOURS)
 
     def _build_energy_map(self):
         for x in range(self.map_width):

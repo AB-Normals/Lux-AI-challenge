@@ -15,6 +15,7 @@ from lux import annotate
 
 MAX_CITY_SIZE = 5
 DISTANCE_BETWEEN_CITIES = 3
+        
 
 def find_closest_city_tile(pos, player):
     closest_city_tile = None
@@ -128,7 +129,7 @@ def agent(observation, configuration, DEBUG=False):
                     actions.append(ct.build_worker())
                 else:
                     actions.append(ct.research())
-            if not fulled:
+            if not fulled and game_state.isEvening() :
                 if jobs.count(Task.ENERGIZE, city_id=city.cityid) < (city_size + 1) // 2:
                     dbg = jobs.count(Task.ENERGIZE, city_id=city.cityid)
                     dbg2 = (city_size + 1) // 2
