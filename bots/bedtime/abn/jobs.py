@@ -38,6 +38,7 @@ class Job:
         self.city_id: str = ""      # city_id parameter used by some tasks
         self.unit_id: str = ""      # unit_id that has this task as assignement
         self.subtask: int = 0       # subtask used by jobs with multistate tasks 
+        self.isNew : bool = True    # True if this job is assigned to a new unit
 
     def __str__(self):
         return f"{self.unit_id}: {TaskStr(self.task)}.{self.subtask} {self.pos} c:{self.city_id}"
@@ -127,6 +128,7 @@ class JobBoard:
         """
         job = self.inprogress.get(unit.id)
         if job:
+            job.isNew = False
             return job
         # check for the first Job from the 'todo' list
         # if unit.get_cargo_space_left() > 0:
@@ -140,13 +142,15 @@ class JobBoard:
         #    return job
         #else:
         job = self._nextJob(unit)
-        if job:
+        if job:            
             job.unit_id = unit.id
+            job.isNew = True
             job.subtask = 0
             self.inprogress[unit.id] = job
             return job
         else: # none to do -> EXPLORE
             job = Job(Task.EXPLORE, unit.pos)
+            job.isNew = True
             job.unit_id = unit.id
             self.inprogress[unit.id] = job
             return job
@@ -154,6 +158,10 @@ class JobBoard:
     def jobDone(self, unit_id):
         job = self.inprogress[unit_id]
         self.done.append(job)
+        del self.inprogress[unit_id]
+
+    def jobDrop(self, unit_id):
+        job = self.inprogress[unit_id]
         del self.inprogress[unit_id]
 
 

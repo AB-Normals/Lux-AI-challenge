@@ -140,7 +140,15 @@ def agent(observation, configuration, DEBUG=False):
         # if the unit is a worker (can mine resources) and can perform an action this turn
         if unit.is_worker() and unit.can_act():
             my_job = jobs.jobRequest(unit)
-            
+
+            # Check if is evening time, if so, to survive, every
+            # job with risk of not having enough energy is dropped
+            # and a new HARVEST job is taken.
+            if game_state.isEvening():
+                if my_job.task == Task.BUILD or my_job.task == Task.EXPLORE:
+                    jobs.jobDrop(unit.id)
+                    my_job = jobs.jobRequest(unit)
+
             if my_job.task == Task.HARVEST:
                 if unit.pos == my_job.pos:
                     jobs.jobDone(unit.id)
@@ -273,7 +281,7 @@ def agent(observation, configuration, DEBUG=False):
                         move = unit.pos.path_to(my_job.pos, game_state.map, noCities=True, playerid=game_state.id)
                         if not actions.move(unit, move.direction):
                             # jobs.jobReject(unit.id) 
-                            jobs.jobDone(unit.id)   
+                            jobs.jobDrop(unit.id)   
                 if my_job.subtask == 3: # WAIT UNTIL NEXT DAY
                     if game_state.getEnergy(unit.pos.x, unit.pos.y) > 0:
                         if game_state.time >= 39:
