@@ -39,7 +39,7 @@ class GameExtended(Game):
         self.player = self.players[self.id]
         self.opponent = self.players[(self.id + 1) % 2]
         #self.resource_tiles = self._free_resources()
-        self.job_board.checkActiveJobs(self.player.units)
+        self.job_board.checkActiveJobs(self.player.units, self.player.cities)
         self.time = self.turn % 40
         self.lux_time = max( 0 , 29 - self.time)
         self._build_energy_map()

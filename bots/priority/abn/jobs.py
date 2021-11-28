@@ -71,7 +71,7 @@ class JobBoard:
                 dist = unit.pos.distance_to(self.todo[n].pos)
                 if dist < closest_dist:
                     i = n
-                    dist = closest_dist            
+                    closest_dist = dist            
             return self.todo.pop(i)
         else:
             
@@ -168,12 +168,16 @@ class JobBoard:
     def activeJobToPos(self, pos: Position) -> bool:
         return pos in [j.pos for j in self.inprogress.values()]
 
-    def checkActiveJobs(self, units : List):
+    def checkActiveJobs(self, units : List, cities : List):
         """ 
-        Using list of Units check if there are some InProgress Jobs assigned to 
-        Unit no more on the list (dead unit). If the case then:
-        - return Job to ToDos
-        - add dead unit.id to rip List
+        Remove Jobs assigned to dead units and created by a destroyed city
+        1.  Using list of Units check if there are some InProgress Jobs assigned to 
+            Unit no more on the list (dead unit). If the case:
+            - return Job to ToDos
+            - add dead unit.id to rip List
+        2.  Using list of cities check in ToDo and InProgress Jobs created by a
+            city no more on the list (destroyed city). In that case:
+            - drop (remove) that job 
         """
         morgue = []
         for unit_id in self.inprogress:
@@ -184,3 +188,8 @@ class JobBoard:
             self.jobReject(unit_id)
             # add unit_id in self.rip
             self.rip.append(unit_id)
+        # Create a new self.todo array removing jobs created by destroyed cities
+        self.todo = [j for j in self.todo if (not j.city_id) or j.city_id in cities]
+        # Create a new self.inprogress array removing jobs created by destroyed cities
+        self.inprogress = {k:v for k,v in self.inprogress.items() if (not v.city_id) or v.city_id in cities}
+        
