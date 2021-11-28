@@ -41,14 +41,17 @@ class GameExtended(Game):
         #self.resource_tiles = self._free_resources()
         self.job_board.checkActiveJobs(self.player.units)
         self.time = self.turn % 40
-        self.lux_time = max( 0 , 30 - self.time)
+        self.lux_time = max( 0 , 29 - self.time)
         self._build_energy_map()
 
     def isEvening(self):
-        return (self.lux_time <= EVENING_HOURS)
+        return (0 < self.lux_time <= EVENING_HOURS)
 
     def isMorning(self):
-        return (self.time <= MORNING_HOURS)
+        return (self.time < MORNING_HOURS)
+    
+    def isNight(self):
+        return (self.lux_time < 1)
 
     def _build_energy_map(self):
         for x in range(self.map_width):

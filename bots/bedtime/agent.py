@@ -70,7 +70,12 @@ def agent(observation, configuration, DEBUG=False):
     # width, height = game_state.map.width, game_state.map.height
     actions.append(annotate.sidetext(f"Time : {game_state.time}"))
     actions.append(annotate.sidetext(f" {game_state.lux_time}h till night"))
-
+    if game_state.isMorning() : dbg = "Morning"
+    elif game_state.isEvening() : dbg = "Evening"
+    elif game_state.isNight() : dbg = "Night"
+    else: dbg = "Daytime"
+    actions.append(annotate.sidetext(f"it is {dbg}"))
+    
     for _, city in player.cities.items():
         # get energy cost for the night to come
         cost = 10 * len(city.citytiles) * city.get_light_upkeep()
@@ -87,8 +92,9 @@ def agent(observation, configuration, DEBUG=False):
         # city_can_expand = city_size + jobs.count(Task.BUILD, city_id=city.cityid) < MAX_CITY_SIZE
         if fulled:
             if not city_can_expand(city, jobs):
+                pass
                 # completed_cities.append(city.cityid)
-                jobs.addJob(Task.EXPLORE, Position(-1,-1), city_id= city.cityid)
+                #jobs.addJob(Task.EXPLORE, Position(-1,-1), city_id= city.cityid)
         #more_space = fulled and city_can_expand
             else:
                 build_requested = False
@@ -129,17 +135,23 @@ def agent(observation, configuration, DEBUG=False):
                     actions.append(ct.build_worker())
                 else:
                     actions.append(ct.research())
-            if not fulled and game_state.isEvening() :
+            if not fulled and not game_state.isNight(): # and game_state.isEvening() :
                 if jobs.count(Task.ENERGIZE, city_id=city.cityid) < (city_size + 1) // 2:
                     dbg = jobs.count(Task.ENERGIZE, city_id=city.cityid)
                     dbg2 = (city_size + 1) // 2
                     actions.append(annotate.sidetext(f"{city.cityid}: NRG {dbg} < {dbg2}"))
                     jobs.addJob(Task.ENERGIZE, ct.pos, city_id = city.cityid)                                     
-        
+
+    actions.append(annotate.sidetext(f"[INPROGRESS]"))        
     for unit in player.units:
+        
         # if the unit is a worker (can mine resources) and can perform an action this turn
-        if unit.is_worker() and unit.can_act():
+        if unit.is_worker():
             my_job = jobs.jobRequest(unit)
+            actions.append(annotate.sidetext(f"{my_job}"))
+
+            if not unit.can_act():
+                continue
 
             # Check if is evening time, if so, to survive, every
             # job with risk of not having enough energy is dropped
@@ -196,15 +208,15 @@ def agent(observation, configuration, DEBUG=False):
                         game_state.getEnergy(unit.pos.x, unit.pos.y) == 0 ):
                         tile = game_state.find_closest_resources(unit.pos)
                         if not tile:
-                            jobs.jobReject(unit.id)
+                            jobs.jobDrop(unit.id)
                         else: 
                             move = unit.pos.path_to(tile.pos, game_state.map, playerid=game_state.id)
                             if not actions.move(unit, move.direction):
-                                jobs.jobReject(unit.id)
+                                jobs.jobDrop(unit.id)
                 if my_job.subtask == 1: # Go to Build position
                     if unit.pos == my_job.pos:
                         if unit.get_cargo_space_left() > 0:
-                            jobs.jobReject(unit.id)
+                            jobs.jobDrop(unit.id)
                         else:
                             action = unit.build_city()
                             actions.append(action)
@@ -260,7 +272,7 @@ def agent(observation, configuration, DEBUG=False):
                         if unit.get_cargo_space_left() > 0:
                             if not game_state.map.get_cell_by_pos(unit.pos).has_resource:
                                 #jobs.jobReject(unit.id)
-                                jobs.jobDone(unit.id)
+                                jobs.jobDrop(unit.id)
                         else: # next subtask
                             my_job.pos = game_state.find_closest_freespace(unit.pos)
                             my_job.subtask = 2  # BUILD A NEW CITY
@@ -269,7 +281,7 @@ def agent(observation, configuration, DEBUG=False):
                         move = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
                         if not actions.move(unit, move.direction):
                             # jobs.jobReject(unit.id)
-                            jobs.jobDone(unit.id)
+                            jobs.jobDrop(unit.id)
                 if my_job.subtask == 2: # BUILD A NEW CITY
                     if unit.pos == my_job.pos:
                         # TODO: need to wait until next day
@@ -290,13 +302,16 @@ def agent(observation, configuration, DEBUG=False):
                         jobs.jobDone(unit.id)
 
     ## Debug Text
-    actions.append(annotate.sidetext("----[TODO]----"))
+    actions.append(annotate.sidetext(f"[TODO] {len(jobs.todo)}"))
     for task in jobs.todo:
         actions.append(annotate.sidetext(task))
 
-    actions.append(annotate.sidetext("-[INPROGRESS]-"))
-    for task in jobs.inprogress.values():
-        actions.append(annotate.sidetext(task))
+#    actions.append(annotate.sidetext(f"[INPROGRESS] {len(jobs.inprogress)}"))
+#    for task in jobs.inprogress:
+#        actions.append(annotate.sidetext(jobs.inprogress[task]))
     
+#    actions.append(annotate.sidetext("-[CEMETERY]-"))
+#    for uid in jobs.rip:
+#        actions.append(annotate.sidetext(uid))
 
     return actions.actions
