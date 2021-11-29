@@ -6,7 +6,6 @@ import math
 from typing import Tuple, List, Dict
 from lux.game_map import Position, Cell
 from lux.game_objects import Unit
-
 class Task:
     """
     Each task consist on a type of Job for a single unit.
@@ -64,17 +63,27 @@ class JobBoard:
         #       Now no heurostics
         if self.todo:
             closest_dist = math.inf
-            i = 0
+            score = 0
+            i = None
             for n in range(len(self.todo)):
                 if self.todo[n].unit_id == unit.id: # not rejected job by this unit
                     continue
-                dist = unit.pos.distance_to(self.todo[n].pos)
-                if dist < closest_dist:
+                temp_score = max(0 , (self.parent.lux_time/2) - unit.pos.distance_to(self.todo[n].pos))
+                if self.todo[n].task == Task.ENERGIZE:
+                    temp_score *= 1.0
+                if self.todo[n].task == Task.BUILD:
+                    temp_score *= 0.5
+                if self.todo[n].task == Task.EXPLORE:
+                    temp_score += 0.7
+
+                if temp_score > score:
                     i = n
-                    closest_dist = dist            
-            return self.todo.pop(i)
+                    score = temp_score            
+            if i is not None:
+                return self.todo.pop(i)
+            else:
+                return None
         else:
-            
             # TODO: choose a default Job
             return None
 

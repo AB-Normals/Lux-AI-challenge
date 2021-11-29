@@ -41,6 +41,10 @@ class Actions:
             self.next_pos[unit.id] = unit.pos
             return False
     
+    def stay(self, unit: Unit) -> bool:
+        self.next_pos[unit.id] = unit.pos
+        return True
+    
     def build_worker(self, ct: CityTile):
         self.new_workers += 1
         self.actions.append(ct.build_worker())

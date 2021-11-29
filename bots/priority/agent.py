@@ -14,7 +14,7 @@ from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
 
 MAX_CITY_SIZE = 5
-DISTANCE_BETWEEN_CITIES = 3
+DISTANCE_BETWEEN_CITIES = 1
         
 
 def find_closest_city_tile(pos, player):
@@ -40,8 +40,11 @@ def can_build_worker(player) -> int:
     return max(0, nr_cts - len(player.units))
 
 def city_can_expand(city: City, jobs: JobBoard) -> bool:
-    ''' City can expand to MAX_CITY_SIZE tiles '''
-    return len(city.citytiles) + jobs.count(Task.BUILD, city_id=city.cityid) < MAX_CITY_SIZE
+    ''' City can expand if has fuel to pass the night plus 230 energy for each new tyle'''
+    #''' City can expand to MAX_CITY_SIZE tiles '''
+    # return len(city.citytiles) + jobs.count(Task.BUILD, city_id=city.cityid) < MAX_CITY_SIZE
+    cost = 10 * city.get_light_upkeep() + 230 * jobs.count(Task.BUILD, city_id=city.cityid) + 230
+    return city.fuel > cost
 
 # Define global variables
 game_state = GameExtended()
@@ -81,7 +84,7 @@ def agent(observation, configuration, DEBUG=False):
     for _, city in player.cities.items():
         city_size = len(city.citytiles)
         # get energy cost for the night to come : TODO (nr of tiles is not needed, but keeped for now)
-        cost = 10 * city_size * city.get_light_upkeep()
+        cost = 10 * city.get_light_upkeep()*(city_size+1)/city_size   # 240 for a new tile
         fulled = city.fuel > cost
 
         # Debug jobs.count
@@ -140,7 +143,7 @@ def agent(observation, configuration, DEBUG=False):
                     # actions.append(ct.build_worker())
                 elif not player.researched_uranium():
                     actions.append(ct.research())
-            if not fulled and not game_state.isNight(): # and game_state.isEvening() :
+            if not fulled: # and not game_state.isNight():
                 if jobs.count(Task.ENERGIZE, city_id=city.cityid) < (city_size + 1) // 2:
                     dbg = jobs.count(Task.ENERGIZE, city_id=city.cityid)
                     dbg2 = (city_size + 1) // 2
@@ -156,15 +159,18 @@ def agent(observation, configuration, DEBUG=False):
             actions.append(annotate.sidetext(f"{my_job}"))
 
             if not unit.can_act():
+                actions.stay(unit)
                 continue
 
             # Check if is evening time, if so, to survive, every
             # job with risk of not having enough energy is dropped
             # and a new HARVEST job is taken.
             if game_state.isNight():
-                if my_job.task == Task.BUILD or my_job.task == Task.EXPLORE:
+                if  (my_job.task == Task.BUILD and my_job.subtask > 0) or \
+                    (my_job.task == Task.EXPLORE and my_job.subtask > 0):
+                    actions.stay(unit)
                     jobs.jobDrop(unit.id)
-                continue    
+                    continue    
 
             if my_job.task == Task.HARVEST:
                 if unit.pos == my_job.pos:
@@ -297,6 +303,7 @@ def agent(observation, configuration, DEBUG=False):
                         #move_dir = unit.pos.direction_to(my_job.pos)
                         move = unit.pos.path_to(my_job.pos, game_state.map, noCities=True, playerid=game_state.id)
                         if not actions.move(unit, move.direction):
+                            action = unit.build_city()
                             # jobs.jobReject(unit.id) 
                             jobs.jobDrop(unit.id)   
                 if my_job.subtask == 3: # WAIT UNTIL NEXT DAY
