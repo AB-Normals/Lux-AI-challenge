@@ -32,16 +32,16 @@ def find_closest_city_tile(pos, player):
     return closest_city_tile
 
 
-def can_build_worker(player) -> bool:
+def can_build_worker(player) -> int:
     # get nr of cytititles
     nr_cts = 0
     for k, c in player.cities.items():
         nr_cts += len(c.citytiles)
-    return nr_cts > len(player.units)
+    return max(0, nr_cts - len(player.units))
 
 def city_can_expand(city: City, jobs: JobBoard) -> bool:
+    ''' City can expand to MAX_CITY_SIZE tiles '''
     return len(city.citytiles) + jobs.count(Task.BUILD, city_id=city.cityid) < MAX_CITY_SIZE
-
 
 # Define global variables
 game_state = GameExtended()
@@ -57,7 +57,6 @@ def agent(observation, configuration, DEBUG=False):
     global lets_build_city
     global build_pos
     global completed_cities
-
 
     ### Do not edit ###
     game_state._update(observation)
@@ -76,64 +75,70 @@ def agent(observation, configuration, DEBUG=False):
     else: dbg = "Daytime"
     actions.append(annotate.sidetext(f"it is {dbg}"))
     
+    #---------------------------------------------------------------------------------------------------------
+    # Cities Management
+    #---------------------------------------------------------------------------------------------------------
     for _, city in player.cities.items():
-        # get energy cost for the night to come
-        cost = 10 * len(city.citytiles) * city.get_light_upkeep()
-        fulled = city.fuel > cost
         city_size = len(city.citytiles)
-        # city can expand if actual city size + requested build is less than maximum size
-        # city_can_expand = city.cityid not in completed_cities
+        # get energy cost for the night to come : TODO (nr of tiles is not needed, but keeped for now)
+        cost = 10 * city_size * city.get_light_upkeep()
+        fulled = city.fuel > cost
+
         # Debug jobs.count
         dbg = jobs.count(Task.BUILD, city_id=city.cityid)
         actions.append(annotate.sidetext(f"{city.cityid}: {dbg} BLD"))
         dbg = jobs.count(Task.ENERGIZE, city_id=city.cityid)
         actions.append(annotate.sidetext(f"{city.cityid}: {dbg} NRG"))
 
-        # city_can_expand = city_size + jobs.count(Task.BUILD, city_id=city.cityid) < MAX_CITY_SIZE
-        if fulled:
-            if not city_can_expand(city, jobs):
-                pass
+
+        #if fulled:
+        #    if not city_can_expand(city, jobs):
+        #        pass
                 # completed_cities.append(city.cityid)
                 #jobs.addJob(Task.EXPLORE, Position(-1,-1), city_id= city.cityid)
         #more_space = fulled and city_can_expand
-            else:
-                build_requested = False
-                pxy = Position(0,0)
-                for ct in city.citytiles:
-                    pxy = ct.pos
-                    # choose a place to create a new citytile in same city
-                    for x, y in [(pxy.x, pxy.y+1), (pxy.x, pxy.y-1), (pxy.x+1, pxy.y), (pxy.x-1, pxy.y)]:
-                        if not 0 <= x < game_state.map_width:
-                            continue
-                        if not 0 <= y < game_state.map_height:
-                            continue
+        #--- EXPAND THE CITY ---
+        if city_can_expand(city, jobs) and fulled:
+            pxy = Position(0,0)
+            # find a place to build a citytile
+            build_requested = False
+            for ct in city.citytiles:
+                pxy = ct.pos
+                # choose a place to create a new citytile in same city
+                for x, y in [(pxy.x, pxy.y+1), (pxy.x, pxy.y-1), (pxy.x+1, pxy.y), (pxy.x-1, pxy.y)]:
+                    if not 0 <= x < game_state.map_width:
+                        continue
+                    if not 0 <= y < game_state.map_height:
+                        continue
 
-                        cell = game_state.map.get_cell(x, y)
-                        # actions.append(annotate.text(x, y, f"{x},{y}"))
-                        if cell.citytile:
-                            continue
-                        if cell.has_resource():
-                            continue
-                        if jobs.activeJobToPos(cell.pos):
-                            build_requested = True
-                            continue
-                        if city_can_expand(city, jobs):
-                            # actions.append(annotate.x(x, y))
-                            jobs.addJob(Task.BUILD, Position(x, y), city_id=city.cityid)
-                            build_requested = True
-                            break
-                    if build_requested:
+                    cell = game_state.map.get_cell(x, y)
+                    # actions.append(annotate.text(x, y, f"{x},{y}"))
+                    if cell.citytile:
+                        continue
+                    if cell.has_resource():
+                        continue
+                    if jobs.activeJobToPos(cell.pos):
+                        build_requested = True
+                        continue
+                    if city_can_expand(city, jobs):
+                        # actions.append(annotate.x(x, y))
+                        jobs.addJob(Task.BUILD, Position(x, y), city_id=city.cityid)
+                        build_requested = True
                         break
-                if not build_requested: # City can not expand
-                    completed_cities.append(city.cityid)
-                    jobs.addJob(Task.EXPLORE, Position(-1,-1), city_id= city.cityid)
+                if build_requested:
+                    break
+            #if not build_requested: # City can not expand
+            #    completed_cities.append(city.cityid)
+            #    jobs.addJob(Task.EXPLORE, Position(-1,-1), city_id= city.cityid)
+        #--- SPAWN WORKERS OR RESEARCH ---
         for ct in city.citytiles:
             pxy = ct.pos
             actions.append(annotate.text(pxy.x, pxy.y, f"{fulled}"))
             if ct.can_act():
-                if can_build_worker(player):
-                    actions.append(ct.build_worker())
-                else:
+                if can_build_worker(player) - actions.new_workers > 0:
+                    actions.build_worker(ct)
+                    # actions.append(ct.build_worker())
+                elif not player.researched_uranium():
                     actions.append(ct.research())
             if not fulled and not game_state.isNight(): # and game_state.isEvening() :
                 if jobs.count(Task.ENERGIZE, city_id=city.cityid) < (city_size + 1) // 2:
@@ -156,10 +161,10 @@ def agent(observation, configuration, DEBUG=False):
             # Check if is evening time, if so, to survive, every
             # job with risk of not having enough energy is dropped
             # and a new HARVEST job is taken.
-            if game_state.isEvening():
+            if game_state.isNight():
                 if my_job.task == Task.BUILD or my_job.task == Task.EXPLORE:
                     jobs.jobDrop(unit.id)
-                    my_job = jobs.jobRequest(unit)
+                continue    
 
             if my_job.task == Task.HARVEST:
                 if unit.pos == my_job.pos:
@@ -235,7 +240,7 @@ def agent(observation, configuration, DEBUG=False):
                                     move.path[i+1][1], move.path[i+1][2]))                        
                         else:   # not path found
                             jobs.jobDone(unit.id)
-                if my_job.subtask == 2:
+                elif my_job.subtask == 2:
                     # if city has adiacent energy then Unit Stay until new day
                     if game_state.getEnergy(unit.pos.x, unit.pos.y) > 0:
                         if game_state.time >= 39:

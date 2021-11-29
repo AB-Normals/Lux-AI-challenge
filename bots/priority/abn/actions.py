@@ -1,5 +1,5 @@
 from abn.game_ext import GameExtended
-from lux.game_objects import Unit
+from lux.game_objects import Unit, CityTile
 from lux.game_map import Position
 from lux.constants import Constants
 
@@ -12,6 +12,7 @@ class Actions:
         self.next_pos = {}  # Dictionary (unit.id: pos)
         self.req_pos = {}   # last requested position
         self.collision = []
+        self.new_workers = 0
     
     def update(self):
         """ need to call 'update' each turn """
@@ -19,7 +20,7 @@ class Actions:
         self.req_pos = self.next_pos.copy()
         self.next_pos = {}
         self.collision = []
-
+        self.new_workers = 0
 
     def append(self, cmd: str):
         self.actions.append(cmd)
@@ -39,6 +40,10 @@ class Actions:
         else:
             self.next_pos[unit.id] = unit.pos
             return False
+    
+    def build_worker(self, ct: CityTile):
+        self.new_workers += 1
+        self.actions.append(ct.build_worker())
 
     def collided(self, unit: Unit) -> bool:
         return unit.id in self.collision
