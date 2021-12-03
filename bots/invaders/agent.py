@@ -13,10 +13,21 @@ from lux.game_constants import GAME_CONSTANTS
 
 from lux import annotate
 
+## DEBUG ENABLE
+DEBUG_SHOW_TIME = False
+DEBUG_SHOW_CITY_JOBS = False
+DEBUG_SHOW_CITY_FULLED = False
+DEBUG_SHOW_EXPAND_MAP = True
+DEBUG_SHOW_EXPAND_LIST = False
+DEBUG_SHOW_INPROGRESS = True
+DEBUG_SHOW_TODO = True
+DEBUG_SHOW_ENERGY_MAP = False
+DEBUG_SHOW_ENEMY_CITIES = False
+DEBUG_SHOW_INVASION_MAP = False
+
 MAX_CITY_SIZE = 5
 DISTANCE_BETWEEN_CITIES = 1
         
-
 def find_closest_city_tile(pos, player):
     closest_city_tile = None
     if len(player.cities) > 0:
@@ -43,7 +54,7 @@ def city_can_expand(city: City, jobs: JobBoard) -> bool:
     ''' City can expand if has fuel to pass the night plus 230 energy for each new tyle'''
     #''' City can expand to MAX_CITY_SIZE tiles '''
     # return len(city.citytiles) + jobs.count(Task.BUILD, city_id=city.cityid) < MAX_CITY_SIZE
-    cost = 10 * city.get_light_upkeep() + 230 * jobs.count(Task.BUILD, city_id=city.cityid) + 230
+    cost = 10 * city.get_light_upkeep()
     return city.fuel > cost
 
 # Define global variables
@@ -70,13 +81,14 @@ def agent(observation, configuration, DEBUG=False):
     player = game_state.player
     opponent = game_state.opponent
     # width, height = game_state.map.width, game_state.map.height
-    actions.append(annotate.sidetext(f"Time : {game_state.time}"))
-    actions.append(annotate.sidetext(f" {game_state.lux_time}h till night"))
-    if game_state.isMorning() : dbg = "Morning"
-    elif game_state.isEvening() : dbg = "Evening"
-    elif game_state.isNight() : dbg = "Night"
-    else: dbg = "Daytime"
-    actions.append(annotate.sidetext(f"it is {dbg}"))
+    if DEBUG_SHOW_TIME:
+        actions.append(annotate.sidetext(f"Time : {game_state.time}"))
+        actions.append(annotate.sidetext(f" {game_state.lux_time}h till night"))
+        if game_state.isMorning() : dbg = "Morning"
+        elif game_state.isEvening() : dbg = "Evening"
+        elif game_state.isNight() : dbg = "Night"
+        else: dbg = "Daytime"
+        actions.append(annotate.sidetext(f"it is {dbg}"))
     
     #---------------------------------------------------------------------------------------------------------
     # Cities Management
@@ -84,15 +96,8 @@ def agent(observation, configuration, DEBUG=False):
     for _, city in player.cities.items():
         city_size = len(city.citytiles)
         # get energy cost for the night to come : TODO (nr of tiles is not needed, but keeped for now)
-        cost = 10 * city.get_light_upkeep()*(city_size+1)/city_size   # 240 for a new tile
+        cost = 10 * city.get_light_upkeep()   # 240 for a new tile
         fulled = city.fuel > cost
-
-        # Debug jobs.count
-        dbg = jobs.count(Task.BUILD, city_id=city.cityid)
-        actions.append(annotate.sidetext(f"{city.cityid}: {dbg} BLD"))
-        dbg = jobs.count(Task.ENERGIZE, city_id=city.cityid)
-        actions.append(annotate.sidetext(f"{city.cityid}: {dbg} NRG"))
-
 
         #if fulled:
         #    if not city_can_expand(city, jobs):
@@ -100,43 +105,55 @@ def agent(observation, configuration, DEBUG=False):
                 # completed_cities.append(city.cityid)
                 #jobs.addJob(Task.EXPLORE, Position(-1,-1), city_id= city.cityid)
         #more_space = fulled and city_can_expand
-        #--- EXPAND THE CITY ---
-        if city_can_expand(city, jobs) and fulled:
-            pxy = Position(0,0)
-            # find a place to build a citytile
-            build_requested = False
-            for ct in city.citytiles:
-                pxy = ct.pos
-                # choose a place to create a new citytile in same city
-                for x, y in [(pxy.x, pxy.y+1), (pxy.x, pxy.y-1), (pxy.x+1, pxy.y), (pxy.x-1, pxy.y)]:
-                    if not 0 <= x < game_state.map_width:
-                        continue
-                    if not 0 <= y < game_state.map_height:
-                        continue
 
-                    cell = game_state.map.get_cell(x, y)
+        #--- EXPAND THE CITY ---
+        if DEBUG_SHOW_EXPAND_LIST:
+            exp_pos = game_state.expand_map.get(city.cityid)
+            actions.append(annotate.sidetext(f"{city.cityid} expand in "))
+            for x, y, v in exp_pos:
+                actions.append(annotate.sidetext(f"  ({x}; {y}) {v}"))
+
+        if city_can_expand(city, jobs) and fulled:
+            exp_pos = game_state.expand_map.get(city.cityid)
+            if exp_pos:
+                x, y, _ = exp_pos[0]
+                jobs.addJob(Task.BUILD, Position(x, y), city_id=city.cityid)
+#            pxy = Position(0,0)
+            # find a place to build a citytile
+#            build_requested = False
+#            for ct in city.citytiles:
+#                pxy = ct.pos
+                # choose a place to create a new citytile in same city
+#                for x, y in [(pxy.x, pxy.y+1), (pxy.x, pxy.y-1), (pxy.x+1, pxy.y), (pxy.x-1, pxy.y)]:
+#                    if not 0 <= x < game_state.map_width:
+#                        continue
+#                    if not 0 <= y < game_state.map_height:
+#                        continue
+#
+#                    cell = game_state.map.get_cell(x, y)
                     # actions.append(annotate.text(x, y, f"{x},{y}"))
-                    if cell.citytile:
-                        continue
-                    if cell.has_resource():
-                        continue
-                    if jobs.activeJobToPos(cell.pos):
-                        build_requested = True
-                        continue
-                    if city_can_expand(city, jobs):
+#                    if cell.citytile:
+#                        continue
+#                    if cell.has_resource():
+#                        continue
+#                    if jobs.activeJobToPos(cell.pos):
+#                        build_requested = True
+#                        continue
+#                    if city_can_expand(city, jobs):
                         # actions.append(annotate.x(x, y))
-                        jobs.addJob(Task.BUILD, Position(x, y), city_id=city.cityid)
-                        build_requested = True
-                        break
-                if build_requested:
-                    break
+#                        jobs.addJob(Task.BUILD, Position(x, y), city_id=city.cityid)
+#                        build_requested = True
+#                        break
+#                if build_requested:
+#                    break
             #if not build_requested: # City can not expand
             #    completed_cities.append(city.cityid)
             #    jobs.addJob(Task.EXPLORE, Position(-1,-1), city_id= city.cityid)
         #--- SPAWN WORKERS OR RESEARCH ---
         for ct in city.citytiles:
             pxy = ct.pos
-            actions.append(annotate.text(pxy.x, pxy.y, f"{fulled}"))
+            if DEBUG_SHOW_CITY_FULLED:
+                actions.append(annotate.text(pxy.x, pxy.y, f"{fulled}"))
             if ct.can_act():
                 if can_build_worker(player) - actions.new_workers > 0:
                     actions.build_worker(ct)
@@ -147,16 +164,32 @@ def agent(observation, configuration, DEBUG=False):
                 if jobs.count(Task.ENERGIZE, city_id=city.cityid) < (city_size + 1) // 2:
                     dbg = jobs.count(Task.ENERGIZE, city_id=city.cityid)
                     dbg2 = (city_size + 1) // 2
-                    actions.append(annotate.sidetext(f"{city.cityid}: NRG {dbg} < {dbg2}"))
+                    if DEBUG_SHOW_CITY_JOBS:
+                        actions.append(annotate.sidetext(f"{city.cityid}: NRG {dbg} < {dbg2}"))
                     jobs.addJob(Task.ENERGIZE, ct.pos, city_id = city.cityid)                                     
 
-    actions.append(annotate.sidetext(f"[INPROGRESS]"))        
+    # Debug jobs.count
+    if DEBUG_SHOW_CITY_JOBS:
+        dbg = jobs.count(Task.BUILD, city_id=city.cityid)
+        actions.append(annotate.sidetext(f"{city.cityid}: {dbg} BLD"))
+        dbg = jobs.count(Task.ENERGIZE, city_id=city.cityid)
+        actions.append(annotate.sidetext(f"{city.cityid}: {dbg} NRG"))
+    #---------------------------------------------------------------------------------------------------------
+
+
+
+    #---------------------------------------------------------------------------------------------------------
+    # Units Management
+    #---------------------------------------------------------------------------------------------------------
+    if DEBUG_SHOW_INPROGRESS:
+        actions.append(annotate.sidetext(f"[INPROGRESS]"))        
     for unit in player.units:
         
         # if the unit is a worker (can mine resources) and can perform an action this turn
         if unit.is_worker():
             my_job = jobs.jobRequest(unit)
-            actions.append(annotate.sidetext(f"{my_job}"))
+            if DEBUG_SHOW_INPROGRESS:
+                actions.append(annotate.sidetext(f"{my_job}"))
 
             if not unit.can_act():
                 actions.stay(unit)
@@ -314,9 +347,32 @@ def agent(observation, configuration, DEBUG=False):
                         jobs.jobDone(unit.id)
 
     ## Debug Text
-    actions.append(annotate.sidetext(f"[TODO] {len(jobs.todo)}"))
-    for task in jobs.todo:
-        actions.append(annotate.sidetext(task))
+    if DEBUG_SHOW_TODO:
+        actions.append(annotate.sidetext(f"[TODO] {len(jobs.todo)}"))
+        for task in jobs.todo:
+            actions.append(annotate.sidetext(task))
+    #--------------------------------------------------------------------------------------------------------    
+
+    # Debug "show expand map"
+    if DEBUG_SHOW_EXPAND_MAP:
+        for x, y, e in [ p for a in game_state.expand_map.values() for p in a]:
+            actions.append(annotate.circle(x, y))
+            actions.append(annotate.text(x, y, e))
+
+    ## Debug "show energy map"
+    if DEBUG_SHOW_ENERGY_MAP:
+        for (x, y),v in game_state.energy_map.items():
+            actions.append(annotate.text(x, y, v))
+
+    ## Debug "show enemy map"
+    if DEBUG_SHOW_ENEMY_CITIES:
+        for x, y in game_state.enemy_map:
+            actions.append(annotate.circle(x, y))
+
+    ## Debug "show invasion map"
+    if DEBUG_SHOW_INVASION_MAP:
+        for x, y in game_state.invasion_map:
+            actions.append(annotate.x(x, y))
 
 #    actions.append(annotate.sidetext(f"[INPROGRESS] {len(jobs.inprogress)}"))
 #    for task in jobs.inprogress:

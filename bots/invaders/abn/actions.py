@@ -3,7 +3,7 @@ from lux.game_objects import Unit, CityTile
 from lux.game_map import Position
 from lux.constants import Constants
 
-
+DEBUG_ONLY_PLAYER_0 = True
 class Actions:
 
     def __init__(self, game_state: GameExtended):
@@ -12,7 +12,7 @@ class Actions:
         self.next_pos = {}  # Dictionary (unit.id: pos)
         self.req_pos = {}   # last requested position
         self.collision = []
-        self.new_workers = 0
+        self.new_workers = 0 
     
     def update(self):
         """ need to call 'update' each turn """
@@ -23,6 +23,8 @@ class Actions:
         self.new_workers = 0
 
     def append(self, cmd: str):
+        if cmd[0] == 'd' and (self.game.id !=0 and DEBUG_ONLY_PLAYER_0):
+            return
         self.actions.append(cmd)
     
     def move(self, unit: Unit, dir) -> bool:
