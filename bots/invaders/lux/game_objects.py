@@ -84,6 +84,15 @@ class Unit:
         self.cargo.wood = wood
         self.cargo.coal = coal
         self.cargo.uranium = uranium
+        self.energy =   self.cargo.wood * Constants.RESOURCE_TO_FUEL_RATE.WOOD + \
+                        self.cargo.coal * Constants.RESOURCE_TO_FUEL_RATE.COAL + \
+                        self.cargo.uranium * Constants.RESOURCE_TO_FUEL_RATE.URANIUM
+        if self.is_worker():
+            self.light_upkeep = GAME_CONSTANTS["PARAMETERS"]["LIGHT_UPKEEP"]["WORKER"]
+        if self.is_cart():
+            self.light_upkeep = GAME_CONSTANTS["PARAMETERS"]["LIGHT_UPKEEP"]["CART"]
+
+
     def is_worker(self) -> bool:
         return self.type == UNIT_TYPES.WORKER
 

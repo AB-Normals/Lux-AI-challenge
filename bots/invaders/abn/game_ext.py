@@ -63,7 +63,7 @@ class GameExtended(Game):
     def _build_energy_map(self):
         for x in range(self.map_width):
             for y in range(self.map_height):
-                self.energy_map[x,y] = self.getEnergy(x,y)
+                self.energy_map[x,y] = self._getEnergy(x,y)
     
     def _build_enemy_map(self):
         self.enemy_map = {}
@@ -96,7 +96,10 @@ class GameExtended(Game):
                             self.expand_map[id].append((x, y, self.getEnergy(x,y)))
             self.expand_map[id].sort(key=lambda x: x[2], reverse=True)   
 
-    def getEnergy(self, px, py) -> int:
+    def getEnergy(self, x, y) -> int:
+        return self.energy_map[x,y]
+
+    def _getEnergy(self, px, py) -> int:
         energy = 0
         # get energy from the cell
         for x, y in [(px, py), (px-1, py), (px, py-1), (px+1, py), (px, py+1)]:

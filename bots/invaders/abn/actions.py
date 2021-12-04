@@ -42,7 +42,11 @@ class Actions:
         else:
             self.next_pos[unit.id] = unit.pos
             return False
-    
+    def build_city(self, unit: Unit):
+        self.next_pos[unit.id] = unit.pos
+        self.actions.append(unit.build_city())
+        return True
+
     def stay(self, unit: Unit) -> bool:
         self.next_pos[unit.id] = unit.pos
         return True
@@ -50,6 +54,9 @@ class Actions:
     def build_worker(self, ct: CityTile):
         self.new_workers += 1
         self.actions.append(ct.build_worker())
+    
+    def resource(self, ct: CityTile):
+        self.actions.append(ct.resource())
 
     def collided(self, unit: Unit) -> bool:
         return unit.id in self.collision

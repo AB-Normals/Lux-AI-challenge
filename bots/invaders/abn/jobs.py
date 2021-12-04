@@ -70,11 +70,11 @@ class JobBoard:
                     continue
                 temp_score = max(0 , (self.parent.lux_time/2) - unit.pos.distance_to(self.todo[n].pos))
                 if self.todo[n].task == Task.ENERGIZE:
-                    temp_score *= 1.0
+                    temp_score *= 2.0
                 if self.todo[n].task == Task.BUILD:
-                    temp_score *= 0.5
+                    temp_score *= 1
                 if self.todo[n].task == Task.EXPLORE:
-                    temp_score += 0.7
+                    temp_score *= 0.5
 
                 if temp_score > score:
                     i = n
