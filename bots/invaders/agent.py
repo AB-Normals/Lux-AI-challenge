@@ -24,9 +24,10 @@ DEBUG_SHOW_TODO = True
 DEBUG_SHOW_ENERGY_MAP = False
 DEBUG_SHOW_ENEMY_CITIES = False
 DEBUG_SHOW_INVASION_MAP = False
+DEBUG_SHOW_EXPLORE_MAP = False
 
-#MAX_CITY_SIZE = 5
-DISTANCE_BETWEEN_CITIES = 3
+MAX_CITY_SIZE = 10
+DISTANCE_BETWEEN_CITIES = 5
         
 def find_closest_city_tile(pos, player):
     closest_city_tile = None
@@ -51,11 +52,11 @@ def can_build_worker(player) -> int:
     return max(0, nr_cts - len(player.units))
 
 def city_can_expand(city: City, jobs: JobBoard) -> bool:
-    ''' City can expand if has fuel to pass the night plus 230 energy for each new tyle'''
-    #''' City can expand to MAX_CITY_SIZE tiles '''
-    # return len(city.citytiles) + jobs.count(Task.BUILD, city_id=city.cityid) < MAX_CITY_SIZE
-    cost = 10 * city.get_light_upkeep()
-    return city.fuel > cost
+    # City can expand if has fuel to pass the night 
+    has_energy = city.isFulled()
+    # City can expand to MAX_CITY_SIZE tiles
+    can_expand = len(city.citytiles) + jobs.count(Task.BUILD, city_id=city.cityid) < MAX_CITY_SIZE
+    return has_energy & can_expand
 
 # Define global variables
 game_state = GameExtended()
@@ -95,16 +96,6 @@ def agent(observation, configuration, DEBUG=False):
     #---------------------------------------------------------------------------------------------------------
     for _, city in player.cities.items():
         city_size = len(city.citytiles)
-        # get energy cost for the night to come : TODO (nr of tiles is not needed, but keeped for now)
-        cost = 10 * city.get_light_upkeep()   # 240 for a new tile
-        fulled = city.fuel > cost
-
-        #if fulled:
-        #    if not city_can_expand(city, jobs):
-        #        pass
-                # completed_cities.append(city.cityid)
-                #jobs.addJob(Task.EXPLORE, Position(-1,-1), city_id= city.cityid)
-        #more_space = fulled and city_can_expand
 
         #--- EXPAND THE CITY ---
         if DEBUG_SHOW_EXPAND_LIST:
@@ -113,25 +104,27 @@ def agent(observation, configuration, DEBUG=False):
             for x, y, v in exp_pos:
                 actions.append(annotate.sidetext(f"  ({x}; {y}) {v}"))
 
-        if city_can_expand(city, jobs) and fulled:
+        if city_can_expand(city, jobs) and city.isFulled():
             exp_pos = game_state.expand_map.get(city.cityid)
             if exp_pos:
                 x, y, v = exp_pos[0]
-                if v:   # expand only if there is a resource nearby
-                    jobs.addJob(Task.BUILD, Position(x, y), city_id=city.cityid)                
+                #if v:   # expand only if there is a resource nearby
+                jobs.addJob(Task.BUILD, Position(x, y), city_id=city.cityid)
+        #else:
+        #    jobs.addJob(Task.INVASION, None, city_id=city.cityid)         
 
         #--- SPAWN WORKERS OR RESEARCH ---
         for ct in city.citytiles:
             pxy = ct.pos
             if DEBUG_SHOW_CITY_FULLED:
-                actions.append(annotate.text(pxy.x, pxy.y, f"{fulled}"))
+                actions.append(annotate.text(pxy.x, pxy.y, f"{city.isFulled()}"))
             if ct.can_act():
                 if can_build_worker(player) - actions.new_workers > 0:
                     actions.build_worker(ct)
                     # actions.append(ct.build_worker())
                 elif not player.researched_uranium():
                     actions.append(ct.research())
-            if not fulled: # and not game_state.isNight():
+            if not city.isFulled(): # and not game_state.isNight():
                 if jobs.count(Task.ENERGIZE, city_id=city.cityid) < (city_size + 1) // 2:
                     dbg = jobs.count(Task.ENERGIZE, city_id=city.cityid)
                     dbg2 = (city_size + 1) // 2
@@ -181,26 +174,37 @@ def agent(observation, configuration, DEBUG=False):
 #                    continue    
 
             if my_job.task == Task.HARVEST:
-                if unit.pos == my_job.pos:
+                # if not in a city and in a cell with energy available stay here to harvest
+                if  game_state.getEnergy(unit.pos.x, unit.pos.y) != 0 and \
+                    not game_state.map.get_cell_by_pos(unit.pos).citytile: 
+                        actions.stay(unit)  # stay in the same position
+                else:   # find a new resource position
+                    if unit.pos == my_job.pos:
+                        tile = game_state.find_closest_resources(unit.pos)
+                        if not tile:    # no more resources to harvest
+                            actions.stay(unit)  # stay in the same position
+                            jobs.jobDrop(unit.id)
+                        else: # move to resource
+                            my_job.pos = tile.pos
+                    if unit.pos != my_job.pos:
+                        move = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
+                        if not actions.move(unit, move.direction): # cannot move to a resource tile
+                                jobs.jobReject(unit.id)
+                if unit.get_cargo_space_left() == 0:
                     actions.stay(unit)
                     jobs.jobDone(unit.id)
-                else:
-                    move = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
-                    # move_dir = unit.pos.direction_to(my_job.pos)
-                    if not actions.move(unit, move.direction):
-                        jobs.jobReject(unit.id)
 
             elif my_job.task == Task.ENERGIZE:
                 if my_job.subtask == 0: # search for resource
-                    # If unit is in the citytile and can grab energy then job is done (unit stay there)
-                    if unit.pos == my_job.pos and game_state.getEnergy(my_job.pos.x, my_job.pos.y) != 0:
-                        actions.stay(unit)  # stay in the same position
-                        jobs.jobDone(unit.id)
-                    if unit.energy >= 10 * unit.light_upkeep:
+                    if game_state.getEnergy(my_job.pos.x, my_job.pos.y) != 0:
                         # citytile is adiacent to a resource so go directly there
                         my_job.subtask = 1
-                    #elif unit.get_cargo_space_left() == 0:
-                    #    my_job.subtask = 1
+                    # If unit is in the citytile and can grab energy then job is done (unit stay there)
+                    elif unit.energy >= 10 * unit.light_upkeep:
+                        # citytile is adiacent to a resource so go directly there
+                        my_job.subtask = 1
+                    elif unit.get_cargo_space_left() == 0:
+                        my_job.subtask = 1
                     elif (game_state.map.get_cell_by_pos(unit.pos).citytile or 
                         game_state.getEnergy(unit.pos.x, unit.pos.y) == 0 ):
                         tile = game_state.find_closest_resources(unit.pos)
@@ -246,7 +250,7 @@ def agent(observation, configuration, DEBUG=False):
                         move = unit.pos.path_to(my_job.pos, game_state.map, noCities=True)
                         if move.path:
                             if not actions.move(unit, move.direction):
-                                jobs.jobReject(unit.id)
+                                jobs.jobDrop(unit.id)
                             # actions.append(unit.move(move_dir))
                             # Draw the path
                             actions.append(annotate.x(my_job.pos.x, my_job.pos.y))
@@ -281,10 +285,10 @@ def agent(observation, configuration, DEBUG=False):
                         pos = player.cities[my_job.city_id].citytiles[0].pos
                     else:
                         pos = my_job.pos
-                    res_cell = game_state.find_closest_resources(pos, min_distance=DISTANCE_BETWEEN_CITIES)
-                    if res_cell:
+                    explore_pos = game_state.getClosestExploreTarget(pos, min_distance=DISTANCE_BETWEEN_CITIES)
+                    if explore_pos:
                         my_job.subtask = 1  # HARVEST resource from position
-                        my_job.pos = res_cell.pos
+                        my_job.pos = explore_pos
                     else:
                         jobs.jobDone(unit.id)
 
@@ -315,12 +319,66 @@ def agent(observation, configuration, DEBUG=False):
                             action = unit.build_city()
                             # jobs.jobReject(unit.id) 
                             jobs.jobDrop(unit.id)   
-                if my_job.subtask == 3: # WAIT UNTIL NEXT DAY
-                    if game_state.getEnergy(unit.pos.x, unit.pos.y) > 0:
-                        if game_state.time >= 39:
-                            jobs.jobDone(unit.id)
-                    else:
+                if my_job.subtask == 3: # Now feed that city
+                    my_job.task = Task.ENERGIZE
+                    my_job.subtask = 0
+                    actions.stay(unit)
+
+            elif my_job.task == Task.INVASION:
+                if my_job.subtask == 0: 
+                    # get an invasion target position
+                    target_pos = game_state.getClosestInvasionTarget(unit.pos)                    
+                    if not target_pos:
+                        actions.stay(unit)
                         jobs.jobDone(unit.id)
+                        continue
+                    my_job.data["target"] = target_pos
+                    if unit.get_cargo_space_left() == 0:    # if unit is full
+                        my_job.pos = target_pos
+                        my_job.subtask = 2
+                    else:
+                        # find a resource in the halfway to the target
+                        res_cell = game_state.find_closest_resources(unit.pos.halfway(target_pos))
+                        if res_cell:
+                            my_job.subtask = 1  # HARVEST resource from position
+                            my_job.pos = res_cell.pos
+                        else:
+                            actions.stay(unit)
+                            jobs.jobDone(unit.id)
+                            continue
+                if my_job.subtask == 1: # HARVEST resource from position
+                    if unit.pos == my_job.pos:
+                        if unit.get_cargo_space_left() == 0:
+                            my_job.pos = my_job.data["target"]
+                            my_job.subtask = 2  # BUILD A NEW CITY
+                        elif not game_state.getEnergy(unit.pos.x, unit.pos.y) > 0:
+                            res_cell = game_state.find_closest_resources(unit.pos)
+                            if res_cell:
+                                my_job.pos = res_cell.pos
+                            else:
+                                actions.stay(unit)
+                                jobs.jobDone(unit.id)
+                                continue
+                        else: # next subtask
+                            actions.stay(unit)  # stay untill cargo is fulled
+                    else:
+                        # move_dir = unit.pos.direction_to(my_job.pos)
+                        move = unit.pos.path_to(my_job.pos, game_state.map, playerid=game_state.id)
+                        if not actions.move(unit, move.direction):  # no way to move
+                            jobs.jobDrop(unit.id)
+                if my_job.subtask == 2: # BUILD A NEW CITY
+                    if unit.pos == my_job.pos:
+                        actions.build_city(unit)
+                        jobs.jobDone(unit.id)
+                    else:
+                        move = unit.pos.path_to(my_job.pos, game_state.map, noCities=True, playerid=game_state.id)
+                        if not actions.move(unit, move.direction):
+                            if unit.get_cargo_space_left() == 0 and not game_state.map.get_cell_by_pos(unit.pos).has_resource:
+                                actions.build_city(unit)
+                                jobs.jobDone(unit.id)
+                            else:
+                                actions.stay(unit)
+
 
     ## Debug Text
     if DEBUG_SHOW_TODO:
@@ -348,6 +406,11 @@ def agent(observation, configuration, DEBUG=False):
     ## Debug "show invasion map"
     if DEBUG_SHOW_INVASION_MAP:
         for x, y in game_state.invasion_map:
+            actions.append(annotate.x(x, y))
+
+    ## Debug "show explore map"
+    if DEBUG_SHOW_EXPLORE_MAP:
+        for x, y in game_state.explore_map:
             actions.append(annotate.x(x, y))
 
 #    actions.append(annotate.sidetext(f"[INPROGRESS] {len(jobs.inprogress)}"))

@@ -25,19 +25,23 @@ class GameExtended(Game):
 
     def __init__(self):
         Game.__init__(self)
+        self.time = 0
+        self.lux_time = 0
         self.job_board = JobBoard(self)
         #self.resource_tiles = []
         self.energy_map = {}    # energy value a unit can draw for each cell
+        self.explore_map = {}   # position in near a resource where to explore and build city
         self.enemy_map = {}     # position of enemy citytiles
         self.invasion_map = {}  # map of cell adjacent to enemy citytiles
         self.expand_map = {}    # for each player city a list of adjacent cells and energy useable to expand
                                 # ex: { "city.id": [(x,y,energy), (x,y,energy), ...] }
+    
 
     def _update(self, messages):
         if messages["step"] == 0:
             Game._initialize(self, messages["updates"])
             Game._update(self, messages["updates"][2:])
-            self.id = messages.player
+            # self.id = messages.player
         else:
             Game._update(self, messages["updates"])
         self.player = self.players[self.id]
@@ -46,7 +50,7 @@ class GameExtended(Game):
         self.job_board.checkActiveJobs(self.player.units, self.player.cities)
         self.time = self.turn % 40
         self.lux_time = max( 0 , 29 - self.time)
-        self._build_energy_map()
+        self._build_energy_map() # fill also the explore_map
         self._build_enemy_map()
         self._build_invasion_map()
         self._build_expand_map()
@@ -63,7 +67,10 @@ class GameExtended(Game):
     def _build_energy_map(self):
         for x in range(self.map_width):
             for y in range(self.map_height):
-                self.energy_map[x,y] = self._getEnergy(x,y)
+                energy = self._getEnergy(x, y)
+                self.energy_map[x,y] = energy
+                if energy and not self.map.get_cell(x, y).has_resource() and not self.map.get_cell(x, y).citytile:
+                    self.explore_map[x,y] = 1
     
     def _build_enemy_map(self):
         self.enemy_map = {}
@@ -95,6 +102,32 @@ class GameExtended(Game):
                             not self.map.get_cell(x, y).has_resource():
                             self.expand_map[id].append((x, y, self.getEnergy(x,y)))
             self.expand_map[id].sort(key=lambda x: x[2], reverse=True)   
+
+    def getClosestInvasionTarget(self, pos: Position) -> Position:
+        """
+        Returns the closest invasion target position
+        """
+        closest_invasion = None
+        closest_distance = math.inf
+        for x, y in self.invasion_map:
+            distance = pos.distance_to(Position(x, y))
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_invasion = Position(x, y)
+        return closest_invasion
+
+    def getClosestExploreTarget(self, pos: Position, min_distance = 0) -> Position:
+        """
+        Returns the closest explore target position
+        """
+        closest_explore = None
+        closest_distance = math.inf
+        for x, y in self.explore_map:
+            distance = pos.distance_to(Position(x, y))
+            if min_distance <= distance < closest_distance:
+                closest_distance = distance
+                closest_explore = Position(x, y)
+        return closest_explore
 
     def getEnergy(self, x, y) -> int:
         return self.energy_map[x,y]
@@ -158,18 +191,13 @@ class GameExtended(Game):
         ]
         while open_list:
             cur_pos = open_list.pop(0)
-            cur_cell = self.map.get_cell(cur_pos[0], cur_pos[1])
-            for direction in check_dirs:
-                next_pos = cur_cell.pos.translate(direction, 1)
-                if not 0 <= next_pos.x < self.map_width:
-                    continue
-                if not 0 <= next_pos.y < self.map_height:
-                    continue
-                next_cell = self.map.get_cell_by_pos(next_pos)
-                if next_cell.citytile:
-                    continue
-                if next_cell.resource:
-                    open_list.append((next_cell.pos.x, next_cell.pos.y))
-                    continue
-                return next_cell.pos
+            x, y = cur_pos
+            if  not self.map.get_cell(x, y).citytile and \
+                not self.map.get_cell(x, y).has_resource():
+                return Position(x, y)
+
+            # cur_cell = self.map.get_cell(cur_pos[0], cur_pos[1])
+            for dx, dy in NEIGHBORS:
+                if 0 <= x+dx < self.map_width and 0 <= y+dy < self.map_height:
+                    open_list.append((x + dx, y + dy))
         return pos

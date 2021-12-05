@@ -33,7 +33,9 @@ class City:
         return ct
     def get_light_upkeep(self):
         return self.light_upkeep
-
+    def isFulled(self) -> bool:
+        night_enegy_cost = 10 * self.get_light_upkeep()
+        return self.fuel > night_enegy_cost
 
 class CityTile:
     def __init__(self, teamid, cityid, x, y, cooldown):

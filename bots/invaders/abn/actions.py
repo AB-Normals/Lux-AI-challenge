@@ -33,12 +33,12 @@ class Actions:
             self.next_pos[unit.id] = pos
             self.actions.append(unit.move(dir))
             return True
-        dir = self._alternativeDirection(dir)
-        pos = unit.pos.translate(dir, 1)
-        if self._isPosOk(pos, unit):
-            self.next_pos[unit.id] = pos
-            self.actions.append(unit.move(dir))
-            return True
+#        dir = self._alternativeDirection(dir)
+#        pos = unit.pos.translate(dir, 1)
+#        if self._isPosOk(pos, unit):
+#            self.next_pos[unit.id] = pos
+#            self.actions.append(unit.move(dir))
+#            return True
         else:
             self.next_pos[unit.id] = unit.pos
             return False

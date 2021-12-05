@@ -17,6 +17,7 @@ class Task:
     HARVEST = "h"       # Get resouce at 'pos'
     ENERGIZE = "e"      # Feed a 'city_id' with resource ad return it at 'pos'
     EXPLORE = "x"       # Search for a place to build a new city
+    INVASION = "i"      # Invade a city
 
 def TaskStr(task: str) -> str:
     _strings_ = {
@@ -24,12 +25,11 @@ def TaskStr(task: str) -> str:
         Task.BUILD: "BLD",
         Task.HARVEST: "HRV",
         Task.ENERGIZE: "NRG",
-        Task.EXPLORE: "XPL"
+        Task.EXPLORE: "XPL",
+        Task.INVASION: "IVS"
     }
 
     return(_strings_[task])
-
-
 class Job:
     def __init__(self, task: str, pos: Position):
         self.pos: Position = pos    # some task need a position reference
@@ -38,6 +38,7 @@ class Job:
         self.unit_id: str = ""      # unit_id that has this task as assignement
         self.subtask: int = 0       # subtask used by jobs with multistate tasks 
         self.isNew : bool = True    # True if this job is assigned to a new unit
+        self.data   = {}              # Data storage for multistate tasks
 
     def __str__(self):
         return f"{self.unit_id}: {TaskStr(self.task)}.{self.subtask} {self.pos} c:{self.city_id}"
@@ -68,17 +69,36 @@ class JobBoard:
             for n in range(len(self.todo)):
                 if self.todo[n].unit_id == unit.id: # not rejected job by this unit
                     continue
-                temp_score = max(0 , (self.parent.lux_time/2) - unit.pos.distance_to(self.todo[n].pos))
-                if self.todo[n].task == Task.ENERGIZE:
-                    temp_score *= 2.0
-                if self.todo[n].task == Task.BUILD:
-                    temp_score *= 1
-                if self.todo[n].task == Task.EXPLORE:
-                    temp_score *= 0.5
+                if not self.todo[n].pos:
+                    distance = 100 # fake distance for jobs without position
+                else:
+                    distance = unit.pos.distance_to(self.todo[n].pos)
+                
+
+                if self.todo[n].task == Task.ENERGIZE:  # if not reacheable result is 0
+                    temp_score = 1      
+                elif self.todo[n].task == Task.BUILD:     # if not reacheable result is 0
+                    temp_score = 0.5
+                elif self.todo[n].task == Task.INVASION:  # in this job unit starts by loading resources
+                    temp_score = 0.2                     # so even if not reachable, it is not a problem
+                elif self.todo[n].task == Task.EXPLORE:   # in this job unit starts by loading resources
+                    temp_score = 0.2                     # so even if not reachable, it is not a problem
+                else:
+                    temp_score = 0.1
+
+                if distance < closest_dist:
+                    closest_dist = distance
+                    score = temp_score
+                    i = n
+                elif distance == closest_dist:
+                    if temp_score > score:
+                        score = temp_score
+                        i = n
 
                 if temp_score > score:
                     i = n
                     score = temp_score            
+
             if i is not None:
                 return self.todo.pop(i)
             else:
@@ -110,8 +130,7 @@ class JobBoard:
         if unit_id in self.inprogress:
             j = self.inprogress[unit_id]
             j.subtask = 0
-            if j.task in [Task.EXPLORE, Task.BUILD]:
-                self.todo.append(j)
+            self.todo.append(j)
             del self.inprogress[unit_id]
 
     def count(self, task: str, pos: Position = None, city_id: str = "") -> int:
@@ -137,19 +156,13 @@ class JobBoard:
         """
         job = self.inprogress.get(unit.id)
         if job:
-            job.isNew = False
-            return job
-        # check for the first Job from the 'todo' list
-        # if unit.get_cargo_space_left() > 0:
-        #    tile = self.parent.find_closest_resources(unit.pos)
-        #    if not tile:
-        #        job = Job(Task.SLEEP, unit.pos)
-        #    else: 
-        #        job = Job(Task.HARVEST, tile.pos)
-        #    job.unit_id = unit.id
-        #    self.inprogress[unit.id] = job
-        #    return job
-        #else:
+            # if is night then drop all Explore, Build and Invasion jobs
+            if self.parent.isNight() and job.task in [Task.EXPLORE, Task.INVASION]:
+                self.jobDrop(unit.id)
+            else:
+                job.isNew = False
+                return job
+        # get a new job
         job = self._nextJob(unit)
         if job:            
             job.unit_id = unit.id
@@ -157,21 +170,32 @@ class JobBoard:
             job.subtask = 0
             self.inprogress[unit.id] = job
             return job
+        elif self.parent.time < 15:
+            if self.parent.time % 2: 
+                job = Job(Task.EXPLORE, unit.pos)
+            else:
+                job = Job(Task.INVASION, unit.pos)
+            job.isNew = True
+            job.unit_id = unit.id
+            self.inprogress[unit.id] = job
+            return job
         else: # none to do -> EXPLORE
-            job = Job(Task.EXPLORE, unit.pos)
+            job = Job(Task.HARVEST, unit.pos)
             job.isNew = True
             job.unit_id = unit.id
             self.inprogress[unit.id] = job
             return job
         
     def jobDone(self, unit_id):
-        job = self.inprogress[unit_id]
-        self.done.append(job)
-        del self.inprogress[unit_id]
+        job = self.inprogress.get(unit_id)
+        if job:
+            self.done.append(job)
+            del self.inprogress[unit_id]
 
     def jobDrop(self, unit_id):
-        job = self.inprogress[unit_id]
-        del self.inprogress[unit_id]
+        job = self.inprogress.get(unit_id)
+        if job:
+            del self.inprogress[unit_id]
 
 
     def activeJobToPos(self, pos: Position) -> bool:
@@ -194,7 +218,7 @@ class JobBoard:
                 morgue.append(unit_id)
         for unit_id in morgue:
             # mov job to self.todo
-            self.jobReject(unit_id)
+            self.jobDrop(unit_id)
             # add unit_id in self.rip
             self.rip.append(unit_id)
         # Create a new self.todo array removing jobs created by destroyed cities

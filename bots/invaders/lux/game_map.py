@@ -89,6 +89,12 @@ class Position:
         elif direction == DIRECTIONS.CENTER:
             return Position(self.x, self.y)
 
+    def halfway(self, target_pos: 'Position') -> 'Position':
+        """
+        Return position in between this and target_pos
+        """
+        return Position((self.x + target_pos.x) // 2, (self.y + target_pos.y) // 2)
+
     def direction_to(self, target_pos: 'Position') -> DIRECTIONS:
         """
         Return closest position to target_pos from this position
