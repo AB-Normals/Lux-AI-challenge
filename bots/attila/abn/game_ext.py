@@ -41,7 +41,7 @@ class GameExtended(Game):
         if messages["step"] == 0:
             Game._initialize(self, messages["updates"])
             Game._update(self, messages["updates"][2:])
-            # self.id = messages.player
+            self.id = messages.player
         else:
             Game._update(self, messages["updates"])
         self.player = self.players[self.id]
